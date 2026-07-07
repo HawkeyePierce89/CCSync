@@ -130,12 +130,12 @@ Files:
 - Create: `Sources/CCSyncCore/BackupService.swift` (public backup API)
 - Create: `Tests/CCSyncCoreTests/BackupServiceTests.swift`
 
-- [ ] Lock the archive-layer decision in code: `ArchiveWriter` operates on `Data`, disk I/O only through `FileSystem`. The container is assembled in memory (no shell-out to system `tar`). If the fallback is accepted — mark the archive tests as real-FS integration.
-- [ ] Manifest: archive-format schema version, source username, project list (path + per-project settings + the incompleteness flag from Task 2), source Claude Code version (for the restore-time check).
-- [ ] `ArchiveWriter`: a single archive with the global config, the manifest, and each project's history.
-- [ ] `BackupService`: default destination is the home directory, optionally specified; collects via `BackupCollector` and writes the archive through `FileSystem`.
-- [ ] Tests: the archive contains global + manifest + history; no credentials/noise; unpacking back yields a consistent structure; the whole run on `InMemoryFileSystem` (or real-FS integration if the fallback was taken).
-- [ ] `swift test` — green before Task 4.
+- [x] Lock the archive-layer decision in code: `ArchiveWriter` operates on `Data`, disk I/O only through `FileSystem`. The container is assembled in memory (no shell-out to system `tar`). If the fallback is accepted — mark the archive tests as real-FS integration. (Decision: pure in-memory container `CCSAR1` over `Data`; fallback NOT taken.)
+- [x] Manifest: archive-format schema version, source username, project list (path + per-project settings + the incompleteness flag from Task 2), source Claude Code version (for the restore-time check).
+- [x] `ArchiveWriter`: a single archive with the global config, the manifest, and each project's history.
+- [x] `BackupService`: default destination is the home directory, optionally specified; collects via `BackupCollector` and writes the archive through `FileSystem`.
+- [x] Tests: the archive contains global + manifest + history; no credentials/noise; unpacking back yields a consistent structure; the whole run on `InMemoryFileSystem` (or real-FS integration if the fallback was taken).
+- [x] `swift test` — green before Task 4.
 
 ### Task 4: Reading the archive and the "project list" contract
 

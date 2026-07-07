@@ -90,6 +90,16 @@ public extension JSONValue {
         return nil
     }
 
+    var intValue: Int? {
+        if case .int(let value) = self { return value }
+        return nil
+    }
+
+    var boolValue: Bool? {
+        if case .bool(let value) = self { return value }
+        return nil
+    }
+
     /// Child value by key (nil unless this is an object containing `key`).
     subscript(key: String) -> JSONValue? {
         objectValue?[key]
