@@ -102,11 +102,11 @@ Files:
 - Create: `Tests/CCSyncCoreTests/UserRemapTests.swift`
 - Create: `Tests/CCSyncCoreTests/Support/InMemoryFileSystem.swift` (logging test FS + fixture helpers)
 
-- [ ] Define the `FileSystem` protocol (read file, list dir, exists, write, read/write byte blobs `Data` for the archive layer, directories-as-explicit-requests) + a real implementation; the test implementation logs every access.
-- [ ] `KnownPaths`: all global paths under `~/.claude` and `~/.claude.json`, the exclusion set (`history.jsonl`, `statsig`, `debug`, `shell-snapshots`, `cache`, `paste-cache`, etc.); the home directory is injected.
-- [ ] `UserRemap`: targeted substitution of the user segment for absolute paths (`/Users/<from>/` → `/Users/<to>/`) and for encoded `projects/` directory names (`-Users-<from>-` → `-Users-<to>-`). No decode→re-encode.
-- [ ] `UserRemap` tests: absolute paths, `projects/` directory names, idempotence when usernames match (no-op), no false positives on paths where `Users` appears not as a prefix.
-- [ ] `swift test` — green before Task 2.
+- [x] Define the `FileSystem` protocol (read file, list dir, exists, write, read/write byte blobs `Data` for the archive layer, directories-as-explicit-requests) + a real implementation; the test implementation logs every access.
+- [x] `KnownPaths`: all global paths under `~/.claude` and `~/.claude.json`, the exclusion set (`history.jsonl`, `statsig`, `debug`, `shell-snapshots`, `cache`, `paste-cache`, etc.); the home directory is injected.
+- [x] `UserRemap`: targeted substitution of the user segment for absolute paths (`/Users/<from>/` → `/Users/<to>/`) and for encoded `projects/` directory names (`-Users-<from>-` → `-Users-<to>-`). No decode→re-encode.
+- [x] `UserRemap` tests: absolute paths, `projects/` directory names, idempotence when usernames match (no-op), no false positives on paths where `Users` appears not as a prefix.
+- [x] `swift test` — green before Task 2.
 
 ### Task 2: Collect backup data (no FS scanning)
 
