@@ -116,7 +116,11 @@ final class BackupViewModel: ObservableObject {
             let home = NSHomeDirectory()
             let service = BackupService(
                 fileSystem: RealFileSystem(),
-                paths: KnownPaths(home: home)
+                paths: KnownPaths(home: home),
+                // Stamp the source Claude Code version so the restore-side
+                // compatibility advisory works for GUI-created archives too
+                // (parity with the CLI in Sources/ccsync/main.swift).
+                sourceClaudeVersion: CommandClaudeVersionProvider().currentVersion()
             )
             do {
                 let path = try service.backup(to: destination)

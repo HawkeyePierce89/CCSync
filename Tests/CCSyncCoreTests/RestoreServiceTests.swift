@@ -187,6 +187,40 @@ final class RestoreServiceTests: XCTestCase {
         )
     }
 
+    // MARK: - Security: a hostile archive cannot escape the restore root
+
+    func testTraversalInGlobalDirEntryIsRejected() throws {
+        let home = "/Users/alice"
+        let fs = InMemoryFileSystem()
+        // A config-dir file whose relative path climbs out of ~/.claude and
+        // targets an absolute location. Restore must refuse it as corrupt.
+        let global = GlobalConfig(
+            configDirs: [
+                ConfigDir(name: "commands", files: [
+                    FileBlob(
+                        relativePath: "../../../../../../../../tmp/ccsync-evil",
+                        data: Data("pwned".utf8)
+                    )
+                ])
+            ]
+        )
+        let model = BackupModel(sourceUser: "alice", global: global, projects: [])
+        let archive = try ArchiveWriter().makeArchive(from: model)
+
+        XCTAssertThrowsError(
+            try service(fs: fs, home: home).restore(
+                archive: archive,
+                selection: selection(global: true, projects: [])
+            )
+        ) { error in
+            guard case .corrupt = (error as? ArchiveError) else {
+                return XCTFail("expected .corrupt, got \(error)")
+            }
+        }
+        // Nothing was written outside the home tree.
+        XCTAssertFalse(fs.exists("/tmp/ccsync-evil"))
+    }
+
     // MARK: - Acceptance 5: one missing project → partial success + report
 
     func testMissingProjectIsSkippedAndReportedWithoutInterruption() throws {

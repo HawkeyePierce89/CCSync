@@ -60,6 +60,13 @@ enum ArchiveContainer {
         guard let count = cursor.takeUInt32() else {
             throw ArchiveError.corrupt("missing entry count")
         }
+        // A minimal entry is 12 bytes (UInt32 pathLen + UInt64 dataLen, both
+        // zero-length). Reject a count that cannot possibly fit in the remaining
+        // bytes *before* reserving, so a hostile length field can't request a
+        // multi-gigabyte allocation and crash the process.
+        guard UInt64(count) <= UInt64(cursor.remaining) / 12 else {
+            throw ArchiveError.corrupt("entry count exceeds archive size")
+        }
 
         var entries: [Entry] = []
         entries.reserveCapacity(Int(count))
@@ -70,7 +77,7 @@ enum ArchiveContainer {
                 throw ArchiveError.corrupt("truncated entry path")
             }
             guard let dataLen = cursor.takeUInt64(),
-                  let payload = cursor.take(Int(dataLen)) else {
+                  let payload = cursor.take(dataLen) else {
                 throw ArchiveError.corrupt("truncated entry payload")
             }
             entries.append(Entry(path: path, data: payload))
@@ -88,11 +95,25 @@ enum ArchiveContainer {
             self.offset = data.startIndex
         }
 
+        /// Bytes not yet consumed.
+        var remaining: Int { data.endIndex - offset }
+
         mutating func take(_ length: Int) -> Data? {
-            guard length >= 0, offset + length <= data.endIndex else { return nil }
+            // `length <= remaining` also rules out the `offset + length` overflow
+            // that a near-`Int.max` length would otherwise trigger.
+            guard length >= 0, length <= remaining else { return nil }
             let slice = data.subdata(in: offset..<(offset + length))
             offset += length
             return slice
+        }
+
+        /// Take `length` bytes where the length arrives as an untrusted UInt64
+        /// (an on-wire field). Validated against the remaining byte count before
+        /// the narrowing `Int(...)` conversion, so an out-of-range value returns
+        /// `nil` instead of trapping.
+        mutating func take(_ length: UInt64) -> Data? {
+            guard length <= UInt64(remaining) else { return nil }
+            return take(Int(length))
         }
 
         mutating func takeUInt32() -> UInt32? {

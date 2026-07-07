@@ -108,6 +108,33 @@ final class ArchiveReaderTests: XCTestCase {
         }
     }
 
+    func testHostileEntryCountThrowsInsteadOfCrashing() {
+        // magic + a UInt32 count of 0xFFFFFFFF and no entries. A naive reader
+        // reserves ~4 billion elements and crashes; we must reject it as corrupt.
+        var data = ArchiveContainer.magic
+        data.append(contentsOf: [0xFF, 0xFF, 0xFF, 0xFF])
+        XCTAssertThrowsError(try ArchiveReader(data: data)) { error in
+            guard case .corrupt = (error as? ArchiveError) else {
+                return XCTFail("expected .corrupt, got \(error)")
+            }
+        }
+    }
+
+    func testHostilePayloadLengthThrowsInsteadOfTrapping() {
+        // One entry with a valid path but a UInt64 payload length near UInt64.max.
+        // `Int(dataLen)` would trap; the reader must return .corrupt instead.
+        var data = ArchiveContainer.magic
+        data.append(contentsOf: [0x01, 0x00, 0x00, 0x00])       // count = 1
+        data.append(contentsOf: [0x01, 0x00, 0x00, 0x00])       // pathLen = 1
+        data.append(0x61)                                       // path = "a"
+        data.append(contentsOf: [UInt8](repeating: 0xFF, count: 8)) // dataLen = UInt64.max
+        XCTAssertThrowsError(try ArchiveReader(data: data)) { error in
+            guard case .corrupt = (error as? ArchiveError) else {
+                return XCTFail("expected .corrupt, got \(error)")
+            }
+        }
+    }
+
     func testMissingManifestThrows() {
         let container = ArchiveContainer.pack([
             .init(path: ArchiveLayout.globalSettings, data: Data("x".utf8))

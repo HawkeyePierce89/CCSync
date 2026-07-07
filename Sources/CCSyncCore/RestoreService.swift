@@ -138,17 +138,17 @@ public struct RestoreService {
         dirty: inout Bool
     ) throws {
         if let settings = reader.payload(at: ArchiveLayout.globalSettings) {
-            try writeWithSnapshot(settings, to: paths.globalSettings, snapshot: snapshot, captured: &captured)
+            try writeWithSnapshot(settings, to: paths.globalSettings, within: paths.claudeDir, snapshot: snapshot, captured: &captured)
         }
         if let claudeMD = reader.payload(at: ArchiveLayout.globalClaudeMD) {
-            try writeWithSnapshot(claudeMD, to: paths.globalClaudeMD, snapshot: snapshot, captured: &captured)
+            try writeWithSnapshot(claudeMD, to: paths.globalClaudeMD, within: paths.claudeDir, snapshot: snapshot, captured: &captured)
         }
         for path in reader.payloadPaths(withPrefix: ArchiveLayout.globalDirsPrefix) {
             guard let data = reader.payload(at: path) else { continue }
             // path is `global/dirs/<dirName>/<relativePath>`.
             let relative = String(path.dropFirst(ArchiveLayout.globalDirsPrefix.count))
             let target = KnownPaths.join(paths.claudeDir, relative)
-            try writeWithSnapshot(data, to: target, snapshot: snapshot, captured: &captured)
+            try writeWithSnapshot(data, to: target, within: paths.claudeDir, snapshot: snapshot, captured: &captured)
         }
         if let mcpData = reader.payload(at: ArchiveLayout.globalMCPServers),
            let mcp = try? JSONValue(data: mcpData) {
@@ -184,7 +184,7 @@ public struct RestoreService {
 
         if let local = reader.payload(at: prefix + ArchiveLayout.projectLocalSettings) {
             let target = KnownPaths.join(KnownPaths.join(targetPath, ".claude"), "settings.local.json")
-            try writeWithSnapshot(local, to: target, snapshot: snapshot, captured: &captured)
+            try writeWithSnapshot(local, to: target, within: targetPath, snapshot: snapshot, captured: &captured)
         }
 
         // History: route each session payload to its target location by UUID.
@@ -212,7 +212,9 @@ public struct RestoreService {
             default:
                 continue
             }
-            try writeWithSnapshot(data, to: target, snapshot: snapshot, captured: &captured)
+            // All history targets live under `~/.claude`; a `..` in the encoded
+            // name, session ID, or relative path must not escape it.
+            try writeWithSnapshot(data, to: target, within: paths.claudeDir, snapshot: snapshot, captured: &captured)
         }
     }
 
@@ -221,9 +223,18 @@ public struct RestoreService {
     private func writeWithSnapshot(
         _ data: Data,
         to path: String,
+        within root: String,
         snapshot: Snapshot,
         captured: inout Bool
     ) throws {
+        // Archive entries carry attacker-influenced relative segments and encoded
+        // project names. Reject any target that escapes its intended root via
+        // `..` before touching disk — a hostile archive must not write outside
+        // `~/.claude` (or the selected project folder). This is a stop condition,
+        // like any other corruption.
+        guard KnownPaths.isContained(path, within: root) else {
+            throw ArchiveError.corrupt("archive entry escapes its restore root: \(path)")
+        }
         if try snapshot.capture(path) { captured = true }
         try fs.writeData(data, to: path)
     }

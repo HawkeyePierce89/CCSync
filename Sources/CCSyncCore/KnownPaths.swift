@@ -107,4 +107,40 @@ public struct KnownPaths: Sendable {
         }
         return base + "/" + component
     }
+
+    // MARK: - Containment
+
+    /// Lexically resolve `.` and `..` segments in `path` (no filesystem access,
+    /// no symlink resolution). A leading `/` is preserved; `..` segments that
+    /// would climb above an absolute root are dropped, matching how the kernel
+    /// clamps `/..` at `/`.
+    public static func normalize(_ path: String) -> String {
+        let isAbsolute = path.hasPrefix("/")
+        var stack: [String] = []
+        for segment in path.split(separator: "/", omittingEmptySubsequences: true) {
+            switch segment {
+            case ".":
+                continue
+            case "..":
+                if let last = stack.last, last != ".." {
+                    stack.removeLast()
+                } else if !isAbsolute {
+                    stack.append("..")
+                }
+            default:
+                stack.append(String(segment))
+            }
+        }
+        return (isAbsolute ? "/" : "") + stack.joined(separator: "/")
+    }
+
+    /// Whether `path`, after lexical normalization, is `root` itself or lies
+    /// beneath it. Used to reject archive entries whose relative segments escape
+    /// their intended restore root (a `..`-traversal in a hostile archive).
+    public static func isContained(_ path: String, within root: String) -> Bool {
+        let normalizedPath = normalize(path)
+        let normalizedRoot = normalize(root)
+        return normalizedPath == normalizedRoot
+            || normalizedPath.hasPrefix(normalizedRoot + "/")
+    }
 }

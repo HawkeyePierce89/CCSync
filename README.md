@@ -46,21 +46,26 @@ Consequences:
 
 ## CLI usage
 
+Requires the Swift 6.0 toolchain and macOS 13 or later (the package declares
+`swift-tools-version:6.0` and `platforms: [.macOS(.v13)]`).
+
 Build the CLI with SwiftPM:
 
 ```sh
 swift build          # or: swift build -c release
 ```
 
-The `ccsync` executable has three commands.
+The `ccsync` executable has three commands (plus `ccsync --help` / `-h` / `help`, which
+prints usage).
 
 ```sh
 # Back up this machine's config + history into a single archive.
 # Default destination is the home directory; override with --out.
 ccsync backup [--out <path>]        # prints the written archive path
 
-# Print the archive's project list as machine-readable JSON
-# (paths, per-project settings, and an incompleteness flag).
+# Print the archive's project list as machine-readable JSON: top-level
+# `sourceUser`, optional `sourceClaudeVersion`, and `projects` (each with its
+# path, per-project settings, and an incompleteness flag).
 ccsync list --archive <path>
 
 # Restore from an archive by explicit selection.
