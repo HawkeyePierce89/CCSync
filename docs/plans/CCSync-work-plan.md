@@ -210,8 +210,8 @@ Files:
 
 ### Task 9: Update documentation
 
-- [ ] Update `README.md`: purpose, transfer/exclusion scope, CLI usage (backup/list/restore), building the app, and explicitly — the history fidelity boundary with different usernames.
-- [ ] Create `CLAUDE.md`: workspace layout (Core/CLI/App), the "don't scan the FS" invariant, the injectable-`FileSystem` approach, the core contract, and the decisions from the "Decisions before start" section (archive layer via `Data`, remap by substitution, version as a proxy, history boundaries).
+- [x] Update `README.md`: purpose, transfer/exclusion scope, CLI usage (backup/list/restore), building the app, and explicitly — the history fidelity boundary with different usernames.
+- [x] Create `CLAUDE.md`: workspace layout (Core/CLI/App), the "don't scan the FS" invariant, the injectable-`FileSystem` approach, the core contract, and the decisions from the "Decisions before start" section (archive layer via `Data`, remap by substitution, version as a proxy, history boundaries).
 
 ## Acceptance Criteria
 
