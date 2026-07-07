@@ -7,11 +7,16 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
-        .library(name: "CCSyncCore", targets: ["CCSyncCore"])
+        .library(name: "CCSyncCore", targets: ["CCSyncCore"]),
+        .executable(name: "ccsync", targets: ["ccsync"])
     ],
     targets: [
         .target(
             name: "CCSyncCore"
+        ),
+        .executableTarget(
+            name: "ccsync",
+            dependencies: ["CCSyncCore"]
         ),
         .testTarget(
             name: "CCSyncCoreTests",

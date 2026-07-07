@@ -180,10 +180,10 @@ Files:
 - Modify: `Package.swift` (executable target `ccsync`)
 - Create: `Tests/CCSyncCoreTests/CLIEndToEndTests.swift`
 
-- [ ] Commands: `backup [--out <path>]`, `list --archive <path>` (machine-readable JSON of the project list), `restore --archive <path>` with explicit selection (`--global/--no-global`, `--projects/--no-projects`, repeatable `--project <path>`).
-- [ ] CLI is a thin layer: all logic in Core, same result without a GUI.
-- [ ] e2e test: on a fixture home, run backup → list → restore round-trip, check the report and the final state (acceptance 7).
-- [ ] `swift test` — green before Task 7.
+- [x] Commands: `backup [--out <path>]`, `list --archive <path>` (machine-readable JSON of the project list), `restore --archive <path>` with explicit selection (`--global/--no-global`, `--projects/--no-projects`, repeatable `--project <path>`).
+- [x] CLI is a thin layer: all logic in Core, same result without a GUI.
+- [x] e2e test: on a fixture home, run backup → list → restore round-trip, check the report and the final state (acceptance 7).
+- [x] `swift test` — green before Task 7.
 
 ### Task 7: SwiftUI macOS app (thin layer over Core)
 
