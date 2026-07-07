@@ -10,6 +10,7 @@ final class InMemoryFileSystem: FileSystem {
     enum Access: Equatable {
         case exists(String)
         case isDirectory(String)
+        case isSymlink(String)
         case readData(String)
         case writeData(String)
         case listDirectory(String)
@@ -17,7 +18,7 @@ final class InMemoryFileSystem: FileSystem {
 
         var path: String {
             switch self {
-            case .exists(let p), .isDirectory(let p), .readData(let p),
+            case .exists(let p), .isDirectory(let p), .isSymlink(let p), .readData(let p),
                  .writeData(let p), .listDirectory(let p), .createDirectory(let p):
                 return p
             }
@@ -31,6 +32,9 @@ final class InMemoryFileSystem: FileSystem {
     private var files: [String: Data] = [:]
     /// Set of directory paths that exist.
     private var directories: Set<String> = ["/"]
+    /// Paths seeded as symbolic links (their targets are not modeled — the
+    /// collector must refuse to follow them, so the target is irrelevant).
+    private var symlinks: Set<String> = []
 
     init() {}
 
@@ -51,6 +55,16 @@ final class InMemoryFileSystem: FileSystem {
     func seedDirectory(_ path: String) {
         let normalised = normalise(path)
         directories.insert(normalised)
+        seedParentDirectories(of: normalised)
+    }
+
+    /// Seed a symbolic link at `path`. Also registers it as a listable entry
+    /// (a plain file) so a directory listing surfaces it; the collector is
+    /// expected to skip it once `isSymlink` reports true. Not journalled.
+    func seedSymlink(_ path: String) {
+        let normalised = normalise(path)
+        symlinks.insert(normalised)
+        files[normalised] = Data()
         seedParentDirectories(of: normalised)
     }
 
@@ -86,6 +100,11 @@ final class InMemoryFileSystem: FileSystem {
     func isDirectory(_ path: String) -> Bool {
         journal.append(.isDirectory(path))
         return directories.contains(normalise(path))
+    }
+
+    func isSymlink(_ path: String) -> Bool {
+        journal.append(.isSymlink(path))
+        return symlinks.contains(normalise(path))
     }
 
     func readData(_ path: String) throws -> Data {

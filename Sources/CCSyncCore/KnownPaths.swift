@@ -134,6 +134,16 @@ public struct KnownPaths: Sendable {
         return (isAbsolute ? "/" : "") + stack.joined(separator: "/")
     }
 
+    /// Whether any component of `segment` (split on `/`) is a `.` or `..`
+    /// traversal marker. Archive-derived relative paths, encoded project names,
+    /// and session IDs are run through this before being joined into a restore
+    /// target so a hostile archive cannot climb out of its intended subroot —
+    /// e.g. `commands/../.credentials.json` or a `..` embedded in an encoded name.
+    public static func hasTraversalComponent(_ segment: String) -> Bool {
+        segment.split(separator: "/", omittingEmptySubsequences: true)
+            .contains { $0 == "." || $0 == ".." }
+    }
+
     /// Whether `path`, after lexical normalization, is `root` itself or lies
     /// beneath it. Used to reject archive entries whose relative segments escape
     /// their intended restore root (a `..`-traversal in a hostile archive).

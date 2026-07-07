@@ -16,6 +16,12 @@ public protocol FileSystem {
     /// Whether `path` exists and is a directory.
     func isDirectory(_ path: String) -> Bool
 
+    /// Whether `path` is itself a symbolic link (the link is *not* followed).
+    /// Backup uses this to refuse to traverse symlinks planted under a known
+    /// root, which could otherwise redirect collection outside the approved
+    /// paths or form a cycle.
+    func isSymlink(_ path: String) -> Bool
+
     /// Read the raw bytes of the file at `path`.
     /// Throws if the file does not exist or cannot be read.
     func readData(_ path: String) throws -> Data
@@ -70,6 +76,16 @@ public struct RealFileSystem: FileSystem {
         var isDir: ObjCBool = false
         let ok = fileManager.fileExists(atPath: path, isDirectory: &isDir)
         return ok && isDir.boolValue
+    }
+
+    public func isSymlink(_ path: String) -> Bool {
+        // `attributesOfItem` uses lstat semantics — it describes the link itself,
+        // not its target — so a symlink reports `.typeSymbolicLink` here even
+        // when it points at a directory.
+        guard let attrs = try? fileManager.attributesOfItem(atPath: path) else {
+            return false
+        }
+        return (attrs[.type] as? FileAttributeType) == .typeSymbolicLink
     }
 
     public func readData(_ path: String) throws -> Data {

@@ -88,6 +88,12 @@ public struct RestoreService {
 
         for project in manifest.projects
         where selection.projectEncodedNames.contains(project.encodedName) {
+            // The encoded name feeds directly into `projects/`, `file-history/`,
+            // etc. target paths — a `..` here would let a hostile archive escape
+            // `~/.claude`. A legitimate encoded name is a single dot-free segment.
+            guard !KnownPaths.hasTraversalComponent(project.encodedName) else {
+                throw ArchiveError.corrupt("archive project name escapes its restore root: \(project.encodedName)")
+            }
             let targetEncoded = remap.remapEncodedProjectName(project.encodedName)
 
             // Orphan history: a `projects/<encoded>/` directory with no
@@ -132,6 +138,9 @@ public struct RestoreService {
         }
 
         if claudeJSONDirty {
+            // Same no-follow guard as writeWithSnapshot: a symlinked
+            // `~/.claude.json` on the target must not redirect this write.
+            try rejectSymlinkedTarget(paths.claudeJSON, within: paths.home)
             if try snapshot.capture(paths.claudeJSON) { captured = true }
             try fs.writeData(try claudeJSON.serialized(pretty: true), to: paths.claudeJSON)
         }
@@ -157,9 +166,32 @@ public struct RestoreService {
         }
         for path in reader.payloadPaths(withPrefix: ArchiveLayout.globalDirsPrefix) {
             guard let data = reader.payload(at: path) else { continue }
-            // path is `global/dirs/<dirName>/<relativePath>`.
+            // path is `global/dirs/<dirName>/<relativePath>`. Constrain `<dirName>`
+            // to the known global config dirs and require a real relative file
+            // path beneath it, rejecting any `.`/`..` component. Without this a
+            // hostile archive with no traversal component — e.g.
+            // `global/dirs/.credentials.json`, `global/dirs/settings.json`, or
+            // `global/dirs/projects/<encoded>/x.jsonl` — would still pass the
+            // `~/.claude` containment check and overwrite excluded/unselected
+            // areas. Write within the specific config-dir root.
             let relative = String(path.dropFirst(ArchiveLayout.globalDirsPrefix.count))
-            let target = KnownPaths.join(paths.claudeDir, relative)
+            let parts = relative.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+            guard parts.count == 2, !parts[1].isEmpty,
+                  KnownPaths.globalConfigDirNames.contains(parts[0]),
+                  !KnownPaths.hasTraversalComponent(relative) else {
+                throw ArchiveError.corrupt("archive entry escapes its restore root: \(path)")
+            }
+            let dirRoot = KnownPaths.join(paths.claudeDir, parts[0])
+            let target = KnownPaths.join(dirRoot, parts[1])
+            // Contain and symlink-check from `~/.claude`, not `dirRoot`: the
+            // symlink walk in `writeWithSnapshot` starts *below* its root, so a
+            // `dirRoot` of `~/.claude/commands` would never test `commands`
+            // itself. If that config dir is already a symlink on the target,
+            // `RealFileSystem.writeData` would follow it outside `~/.claude`.
+            // The allowlist above (`parts[0]` ∈ `globalConfigDirNames`) plus the
+            // no-traversal check already pin the target under `~/.claude/<dir>`,
+            // so containing against `claudeDir` is no looser — and it makes the
+            // walk check the config-dir root component too.
             try writeWithSnapshot(data, to: target, within: paths.claudeDir, snapshot: snapshot, captured: &captured)
         }
         if let mcpData = reader.payload(at: ArchiveLayout.globalMCPServers),
@@ -210,8 +242,14 @@ public struct RestoreService {
         let sessionsPrefix = prefix + ArchiveLayout.sessionsComponent + "/"
         for path in reader.payloadPaths(withPrefix: sessionsPrefix) {
             guard let data = reader.payload(at: path) else { continue }
-            // rest is `<sessionID>/<component>/<relativePath...>`.
+            // rest is `<sessionID>/<component>/<relativePath...>`. The session ID
+            // and relative portion are attacker-influenced and feed into
+            // `file-history/<id>/…`, `session-env/<id>/…`, etc.; reject any
+            // `.`/`..` component so they cannot escape `~/.claude`.
             let rest = String(path.dropFirst(sessionsPrefix.count))
+            guard !KnownPaths.hasTraversalComponent(rest) else {
+                throw ArchiveError.corrupt("archive entry escapes its restore root: \(path)")
+            }
             let components = rest.split(separator: "/", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
             guard components.count == 3 else { continue }
             let sessionID = components[0]
@@ -254,12 +292,42 @@ public struct RestoreService {
         guard KnownPaths.isContained(path, within: root) else {
             throw ArchiveError.corrupt("archive entry escapes its restore root: \(path)")
         }
+        try rejectSymlinkedTarget(path, within: root)
         if try snapshot.capture(path) { captured = true }
         try fs.writeData(data, to: path)
     }
 
+    /// Reject a restore target that is itself a symlink, or that reaches its
+    /// destination through a symlinked parent component beneath `root`.
+    ///
+    /// `KnownPaths.isContained` is purely lexical, and `FileSystem.writeData`
+    /// (and the pre-write snapshot read) both follow symlinks. So a symlink
+    /// already present on the *target* machine — e.g. `~/.claude/settings.json`
+    /// or a `~/.claude/commands` directory pointed elsewhere — would let a
+    /// write escape the intended restore root even though the path is lexically
+    /// contained. Walk each component from just below `root` down to the target
+    /// and stop, like any other corruption, if one is a symlink.
+    private func rejectSymlinkedTarget(_ path: String, within root: String) throws {
+        let normalizedRoot = KnownPaths.normalize(root)
+        let normalizedPath = KnownPaths.normalize(path)
+        guard normalizedPath == normalizedRoot
+            || normalizedPath.hasPrefix(normalizedRoot + "/") else { return }
+
+        var current = normalizedRoot
+        let rest = normalizedPath.dropFirst(normalizedRoot.count)
+        for segment in rest.split(separator: "/", omittingEmptySubsequences: true) {
+            current = KnownPaths.join(current, String(segment))
+            if fs.isSymlink(current) {
+                throw ArchiveError.corrupt("restore target crosses a symlink: \(current)")
+            }
+        }
+    }
+
     private func readClaudeJSON() throws -> JSONValue {
-        guard fs.exists(paths.claudeJSON) else { return .object([:]) }
+        // Don't read through a symlinked `~/.claude.json`. The write-back below
+        // is refused for the same reason (`rejectSymlinkedTarget`); treat a
+        // symlinked document as an empty base so the merge starts from scratch.
+        guard fs.exists(paths.claudeJSON), !fs.isSymlink(paths.claudeJSON) else { return .object([:]) }
         return try JSONValue(data: fs.readData(paths.claudeJSON))
     }
 

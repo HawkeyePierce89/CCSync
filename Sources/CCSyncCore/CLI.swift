@@ -122,7 +122,7 @@ public enum CCSyncCLI {
         let archivePath = try parser.requiredOptionValue("--archive")
         let globalFlag = parser.boolFlag(on: "--global", off: "--no-global")
         let projectsFlag = parser.boolFlag(on: "--projects", off: "--no-projects")
-        let projectPaths = parser.repeatedOptionValues("--project")
+        let projectPaths = try parser.repeatedOptionValues("--project")
         try parser.finish()
 
         let data = try readArchive(archivePath, env: env)
@@ -236,13 +236,17 @@ private struct ArgParser {
         return value
     }
 
-    /// Consume all occurrences of `name value`, in order.
-    mutating func repeatedOptionValues(_ name: String) -> [String] {
+    /// Consume all occurrences of `name value`, in order. A trailing `name` with
+    /// no following value — or one immediately followed by another `--` flag — is
+    /// a usage error (never silently dropped). Otherwise a dangling `--project`
+    /// would fall back to the default "all projects", and `--project --no-global`
+    /// would swallow the flag as a path and restore global config despite the
+    /// user opting out.
+    mutating func repeatedOptionValues(_ name: String) throws -> [String] {
         var values: [String] = []
         while let index = tokens.firstIndex(of: name) {
-            guard index + 1 < tokens.count else {
-                tokens.remove(at: index)
-                break
+            guard index + 1 < tokens.count, !tokens[index + 1].hasPrefix("--") else {
+                throw CLIError("option \(name) requires a value")
             }
             values.append(tokens[index + 1])
             tokens.removeSubrange(index...(index + 1))

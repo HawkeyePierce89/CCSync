@@ -38,6 +38,66 @@ final class BackupCollectorTests: XCTestCase {
         ]))
     }
 
+    func testSymlinkedEntriesAreNeverFollowed() throws {
+        let fs = InMemoryFileSystem()
+        fs.seedFile("\(home)/.claude/settings.json", "{}")
+        fs.seedFile("\(home)/.claude/commands/real.md", "genuine")
+        // A symlink planted under a known root must not be followed (it could
+        // redirect collection outside the approved paths or form a cycle).
+        fs.seedSymlink("\(home)/.claude/commands/escape.md")
+
+        let model = try makeCollector(fs).collect()
+
+        let commands = model.global.configDirs.first { $0.name == "commands" }
+        XCTAssertEqual(commands?.files.map(\.relativePath), ["real.md"])
+        // The symlink's contents were never read.
+        XCTAssertFalse(fs.journal.contains(.readData("\(home)/.claude/commands/escape.md")))
+    }
+
+    func testSymlinkedDirectoryRootIsNeverListed() throws {
+        let fs = InMemoryFileSystem()
+        fs.seedFile("\(home)/.claude/settings.json", "{}")
+        // `commands` is itself a symlink pointing at a directory. `isDirectory`
+        // follows symlinks, so without an explicit symlink guard on the root the
+        // collector would enter it and scan the target (`leaked.md` here),
+        // redirecting collection outside the approved paths.
+        let commandsDir = "\(home)/.claude/commands"
+        fs.seedFile("\(commandsDir)/leaked.md", "outside approved roots")
+        fs.seedSymlink(commandsDir)
+
+        let model = try makeCollector(fs).collect()
+
+        // The symlinked root was skipped entirely.
+        XCTAssertNil(model.global.configDirs.first { $0.name == "commands" })
+        XCTAssertFalse(fs.journal.contains(.listDirectory(commandsDir)))
+        XCTAssertFalse(fs.journal.contains(.readData("\(commandsDir)/leaked.md")))
+    }
+
+    func testSymlinkedDirectReadFilesAreNeverFollowed() throws {
+        let fs = InMemoryFileSystem()
+        // Every fixed known path we read directly (after only an `exists` check)
+        // is planted as a symlink. `RealFileSystem.readData` follows symlinks, so
+        // without a no-follow guard each would siphon an outside file into the
+        // archive. Restore-independent regression for the direct-read paths.
+        fs.seedSymlink("\(home)/.claude.json")
+        fs.seedSymlink("\(home)/.claude/settings.json")
+        fs.seedSymlink("\(home)/.claude/CLAUDE.md")
+        let projectPath = "/Users/alice/git/App"
+        fs.seedSymlink("\(projectPath)/.claude/settings.local.json")
+
+        let model = try makeCollector(fs).collect()
+
+        // None of the symlinked known paths were read.
+        XCTAssertFalse(fs.journal.contains(.readData("\(home)/.claude.json")))
+        XCTAssertFalse(fs.journal.contains(.readData("\(home)/.claude/settings.json")))
+        XCTAssertFalse(fs.journal.contains(.readData("\(home)/.claude/CLAUDE.md")))
+        XCTAssertFalse(fs.journal.contains(.readData("\(projectPath)/.claude/settings.local.json")))
+
+        // A symlinked known path is treated as absent, not captured.
+        XCTAssertNil(model.global.settings)
+        XCTAssertNil(model.global.claudeMD)
+    }
+
     func testOptionalGlobalFilesAbsent() throws {
         let fs = InMemoryFileSystem()
         fs.seedFile("\(home)/.claude/settings.json", "{}")

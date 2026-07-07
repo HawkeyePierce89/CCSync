@@ -28,27 +28,34 @@ public struct BackupCollector {
     // MARK: - ~/.claude.json
 
     private func readClaudeJSON() throws -> JSONValue {
-        guard fs.exists(paths.claudeJSON) else { return .object([:]) }
+        // `RealFileSystem.readData` follows symlinks, so a `~/.claude.json`
+        // planted as a symlink would pull an arbitrary outside file's contents
+        // into the archive. Treat a symlinked known path as absent, mirroring
+        // the no-follow rule already applied to directory traversal.
+        guard fs.exists(paths.claudeJSON), !fs.isSymlink(paths.claudeJSON) else { return .object([:]) }
         return try JSONValue(data: fs.readData(paths.claudeJSON))
     }
 
     // MARK: - Global config
 
     private func collectGlobal(claudeJSON: JSONValue) throws -> GlobalConfig {
+        // As with the recursive capture, never read through a symlink: a
+        // symlinked `settings.json` or `CLAUDE.md` at a known path would
+        // otherwise siphon an arbitrary outside file into the archive. Skip it.
         var settings: Data?
-        if fs.exists(paths.globalSettings) {
+        if fs.exists(paths.globalSettings), !fs.isSymlink(paths.globalSettings) {
             settings = try fs.readData(paths.globalSettings)
         }
 
         var claudeMD: Data?
-        if fs.exists(paths.globalClaudeMD) {
+        if fs.exists(paths.globalClaudeMD), !fs.isSymlink(paths.globalClaudeMD) {
             claudeMD = try fs.readData(paths.globalClaudeMD)
         }
 
         var configDirs: [ConfigDir] = []
         for name in KnownPaths.globalConfigDirNames {
             let dir = KnownPaths.join(paths.claudeDir, name)
-            if fs.isDirectory(dir) {
+            if isListableDirectory(dir) {
                 configDirs.append(ConfigDir(name: name, files: try collectFiles(under: dir)))
             }
         }
@@ -67,7 +74,7 @@ public struct BackupCollector {
         let projectSettings = claudeJSON["projects"]?.objectValue ?? [:]
 
         var existingDirs: Set<String> = []
-        if fs.isDirectory(paths.projectsDir) {
+        if isListableDirectory(paths.projectsDir) {
             existingDirs = Set(try fs.listDirectory(paths.projectsDir))
         }
         let todoNames = listTodos()
@@ -98,7 +105,7 @@ public struct BackupCollector {
 
         // History directories with no matching entry in ~/.claude.json.
         for dir in existingDirs.sorted() where !matchedDirs.contains(dir) {
-            guard fs.isDirectory(paths.projectDir(encoded: dir)) else { continue }
+            guard isListableDirectory(paths.projectDir(encoded: dir)) else { continue }
             entries.append(ProjectEntry(
                 path: "",
                 encodedName: dir,
@@ -117,7 +124,8 @@ public struct BackupCollector {
         guard !projectPath.isEmpty else { return nil }
         let claudeDir = KnownPaths.join(projectPath, ".claude")
         let local = KnownPaths.join(claudeDir, "settings.local.json")
-        guard fs.exists(local) else { return nil }
+        // Don't follow a symlinked `settings.local.json` into an outside file.
+        guard fs.exists(local), !fs.isSymlink(local) else { return nil }
         return try fs.readData(local)
     }
 
@@ -125,12 +133,12 @@ public struct BackupCollector {
 
     private func collectSessions(encoded: String, todoNames: [String]) throws -> [SessionArtifacts] {
         let dir = paths.projectDir(encoded: encoded)
-        guard fs.isDirectory(dir) else { return [] }
+        guard isListableDirectory(dir) else { return [] }
 
         var sessions: [SessionArtifacts] = []
         for name in try fs.listDirectory(dir).sorted() where name.hasSuffix(".jsonl") {
             let full = KnownPaths.join(dir, name)
-            guard !fs.isDirectory(full) else { continue }
+            guard !fs.isDirectory(full), !fs.isSymlink(full) else { continue }
 
             let stem = String(name.dropLast(".jsonl".count))
             let isSubAgent = stem.hasPrefix("agent-")
@@ -148,20 +156,31 @@ public struct BackupCollector {
     }
 
     private func collectHistoryDir(_ dir: String) throws -> [FileBlob] {
-        guard fs.isDirectory(dir) else { return [] }
+        guard isListableDirectory(dir) else { return [] }
         return try collectFiles(under: dir)
     }
 
     private func listTodos() -> [String] {
-        guard fs.isDirectory(paths.todosDir) else { return [] }
+        guard isListableDirectory(paths.todosDir) else { return [] }
         return (try? fs.listDirectory(paths.todosDir)) ?? []
+    }
+
+    /// A directory root we are willing to list. `FileSystem.isDirectory` follows
+    /// symlinks, so a known root (`~/.claude/commands`, a `projects/<encoded>`
+    /// folder, a `file-history/<uuid>` dir, …) that is *itself* a symlink would
+    /// otherwise be entered and its target scanned — redirecting collection
+    /// outside the approved paths (violating "don't scan the disk"). Refuse to
+    /// list any root that is a symlink; symlinked *children* are skipped
+    /// separately in `collectFiles`.
+    private func isListableDirectory(_ path: String) -> Bool {
+        fs.isDirectory(path) && !fs.isSymlink(path)
     }
 
     private func collectTodos(sessionID: String, todoNames: [String]) throws -> [FileBlob] {
         var blobs: [FileBlob] = []
         for name in todoNames.sorted() where todoMatches(name: name, sessionID: sessionID) {
             let full = KnownPaths.join(paths.todosDir, name)
-            guard fs.exists(full), !fs.isDirectory(full) else { continue }
+            guard fs.exists(full), !fs.isDirectory(full), !fs.isSymlink(full) else { continue }
             blobs.append(FileBlob(relativePath: name, data: try fs.readData(full)))
         }
         return blobs
@@ -179,6 +198,10 @@ public struct BackupCollector {
         var result: [FileBlob] = []
         for name in try fs.listDirectory(root).sorted() {
             let full = KnownPaths.join(root, name)
+            // Never follow symlinks: one planted under a known root could redirect
+            // this recursion outside the approved paths (violating "don't scan the
+            // disk") or form a cycle. Skip the entry entirely.
+            if fs.isSymlink(full) { continue }
             let relative = prefix.isEmpty ? name : prefix + "/" + name
             if fs.isDirectory(full) {
                 result += try collectFiles(under: full, prefix: relative)

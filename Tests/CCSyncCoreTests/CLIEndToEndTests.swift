@@ -185,4 +185,48 @@ final class CLIEndToEndTests: XCTestCase {
         XCTAssertEqual(result.code, 2)
         XCTAssertTrue(result.stderr.contains("unknown command"), result.stderr)
     }
+
+    /// A `--project` with no following value must be a usage error, not a silent
+    /// fall-back to the default "all projects selected".
+    func testRestoreDanglingProjectFlagIsUsageError() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem()
+        seedSourceHome(sourceFs, home: home)
+        let (_, bytes) = try makeArchive(sourceFs: sourceFs, home: home)
+
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: bytes, at: archivePath)
+
+        let result = run(
+            ["restore", "--archive", archivePath, "--project"],
+            fs: targetFs, home: home
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
+        // Nothing was restored — the run stopped at argument parsing.
+        XCTAssertFalse(targetFs.exists("\(home)/.claude/projects/\(appEncoded)/11111111-1111-1111-1111-111111111111.jsonl"))
+    }
+
+    /// `--project` immediately followed by another flag must be a usage error,
+    /// not swallow the flag as a path. Otherwise `--project --no-global` would
+    /// consume `--no-global`, leaving global config to be restored despite the
+    /// user opting out.
+    func testRestoreProjectFlagDoesNotSwallowNextFlag() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem()
+        seedSourceHome(sourceFs, home: home)
+        let (_, bytes) = try makeArchive(sourceFs: sourceFs, home: home)
+
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: bytes, at: archivePath)
+
+        let result = run(
+            ["restore", "--archive", archivePath, "--project", "--no-global"],
+            fs: targetFs, home: home
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
+        // Global config was not restored — parsing stopped before any write.
+        XCTAssertFalse(targetFs.exists("\(home)/.claude/settings.json"))
+    }
 }

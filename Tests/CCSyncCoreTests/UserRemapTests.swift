@@ -45,6 +45,23 @@ final class UserRemapTests: XCTestCase {
         )
     }
 
+    /// Usernames with non-alphanumeric characters are encoded (`.`/`_` → `-`)
+    /// inside the `projects/` directory name, so the encoded form must be matched
+    /// and substituted — not the raw username (acceptance #3).
+    func testRemapEncodedProjectNameHandlesSpecialCharUsernames() {
+        let remap = UserRemap(from: "alice.smith", to: "bob_jones")
+        // The on-disk directory encodes `alice.smith` as `alice-smith`.
+        XCTAssertEqual(
+            remap.remapEncodedProjectName("-Users-alice-smith-git-CCSync"),
+            "-Users-bob-jones-git-CCSync"
+        )
+        // Absolute paths keep the real (raw) usernames.
+        XCTAssertEqual(
+            remap.remapAbsolutePath("/Users/alice.smith/git/CCSync"),
+            "/Users/bob_jones/git/CCSync"
+        )
+    }
+
     // MARK: - Idempotence / no-op when usernames match
 
     func testNoOpWhenUsernamesMatch() {

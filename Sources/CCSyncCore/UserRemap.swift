@@ -47,18 +47,26 @@ public struct UserRemap: Sendable, Equatable {
 
     /// Remap an encoded `projects/` directory name that begins with
     /// `-Users-<from>-`. Only the leading user segment is substituted.
+    ///
+    /// The username inside an encoded name is itself run through the `projects/`
+    /// encoding (non-alphanumeric → `-`), so a raw username like `alice.smith`
+    /// appears as `alice-smith` in the directory name. We therefore match and
+    /// substitute the *encoded* form of the user segment — otherwise history for
+    /// users with `.`/`_`/etc. in their name would never remap (acceptance #3).
     public func remapEncodedProjectName(_ name: String) -> String {
         if isNoOp { return name }
-        let fromPrefix = "-Users-\(from)-"
-        let toPrefix = "-Users-\(to)-"
+        let fromEncoded = ProjectPathEncoding.encode(from)
+        let toEncoded = ProjectPathEncoding.encode(to)
+        let fromPrefix = "-Users-\(fromEncoded)-"
+        let toPrefix = "-Users-\(toEncoded)-"
         if name.hasPrefix(fromPrefix) {
             return toPrefix + name.dropFirst(fromPrefix.count)
         }
         // Some project paths may encode to exactly `-Users-<from>` with no
         // trailing segment (the home directory itself).
-        let fromExact = "-Users-\(from)"
+        let fromExact = "-Users-\(fromEncoded)"
         if name == fromExact {
-            return "-Users-\(to)"
+            return "-Users-\(toEncoded)"
         }
         return name
     }

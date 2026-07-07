@@ -432,4 +432,197 @@ final class RestoreServiceTests: XCTestCase {
             XCTAssertEqual(error as? ArchiveError, .notAnArchive)
         }
     }
+
+    // MARK: - Hostile archive path traversal is rejected
+
+    /// A `..` in a global config-dir payload must not escape `~/.claude` (e.g.
+    /// `global/dirs/commands/../.credentials.json` overwriting credentials).
+    func testGlobalDirsTraversalIsRejected() throws {
+        let global = GlobalConfig(
+            settings: nil,
+            claudeMD: nil,
+            configDirs: [
+                ConfigDir(name: "commands", files: [
+                    FileBlob(relativePath: "../.credentials.json", data: Data("EVIL".utf8))
+                ])
+            ],
+            mcpServers: nil
+        )
+        let archive = try ArchiveWriter().makeArchive(
+            from: BackupModel(sourceUser: "alice", global: global, projects: [])
+        )
+        let home = "/Users/alice"
+        let fs = InMemoryFileSystem()
+        XCTAssertThrowsError(
+            try service(fs: fs, home: home).restore(
+                archive: archive,
+                selection: selection(global: true, projects: [])
+            )
+        ) { error in
+            guard case .corrupt = error as? ArchiveError else {
+                return XCTFail("expected .corrupt, got \(error)")
+            }
+        }
+        // The credentials file was never written.
+        XCTAssertFalse(fs.exists("\(home)/.claude/.credentials.json"))
+    }
+
+    /// A global config-dir payload whose top segment is not a known config dir
+    /// must be rejected even without any `..` component — otherwise a hostile
+    /// archive could write into e.g. `~/.claude/projects/<encoded>/…`, clobbering
+    /// session history the user never selected.
+    func testGlobalDirsNonConfigDirNameIsRejected() throws {
+        let encoded = "-Users-alice-git-Other"
+        let global = GlobalConfig(
+            settings: nil,
+            claudeMD: nil,
+            configDirs: [
+                // Masquerades as the `projects` root, not a real config dir.
+                ConfigDir(name: "projects", files: [
+                    FileBlob(relativePath: "\(encoded)/evil.jsonl", data: Data("EVIL".utf8))
+                ])
+            ],
+            mcpServers: nil
+        )
+        let archive = try ArchiveWriter().makeArchive(
+            from: BackupModel(sourceUser: "alice", global: global, projects: [])
+        )
+        let home = "/Users/alice"
+        let fs = InMemoryFileSystem()
+        XCTAssertThrowsError(
+            try service(fs: fs, home: home).restore(
+                archive: archive,
+                selection: selection(global: true, projects: [])
+            )
+        ) { error in
+            guard case .corrupt = error as? ArchiveError else {
+                return XCTFail("expected .corrupt, got \(error)")
+            }
+        }
+        XCTAssertFalse(fs.exists("\(home)/.claude/projects/\(encoded)/evil.jsonl"))
+    }
+
+    /// A `..` embedded in a project's encoded name must not escape `~/.claude`.
+    func testProjectEncodedNameTraversalIsRejected() throws {
+        let evil = ProjectEntry(
+            path: "/Users/alice/git/Evil",
+            encodedName: "../../../../tmp/evil",
+            settings: nil,
+            localSettings: nil,
+            sessions: [SessionArtifacts(
+                sessionID: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+                isSubAgent: false,
+                transcript: FileBlob(relativePath: "t.jsonl", data: Data("x".utf8))
+            )]
+        )
+        let archive = try ArchiveWriter().makeArchive(
+            from: BackupModel(sourceUser: "alice", global: GlobalConfig(), projects: [evil])
+        )
+        let home = "/Users/alice"
+        let fs = InMemoryFileSystem()
+        fs.seedDirectory("\(home)/git/Evil")
+        XCTAssertThrowsError(
+            try service(fs: fs, home: home).restore(
+                archive: archive,
+                selection: selection(global: false, projects: ["../../../../tmp/evil"])
+            )
+        ) { error in
+            guard case .corrupt = error as? ArchiveError else {
+                return XCTFail("expected .corrupt, got \(error)")
+            }
+        }
+    }
+
+    // MARK: - A symlink already on the target must not be written through
+
+    /// `KnownPaths.isContained` is purely lexical and `FileSystem.writeData`
+    /// follows symlinks. A global config file that already exists on the target
+    /// as a symlink must be rejected, not written through to its target.
+    func testSymlinkedGlobalTargetIsRejected() throws {
+        let home = "/Users/alice"
+        let fs = InMemoryFileSystem()
+        // The target already has `~/.claude/settings.json` as a symlink.
+        fs.seedSymlink("\(home)/.claude/settings.json")
+
+        XCTAssertThrowsError(
+            try service(fs: fs, home: home).restore(
+                archive: try sampleArchive(),
+                selection: selection(global: true, projects: [])
+            )
+        ) { error in
+            guard case .corrupt = error as? ArchiveError else {
+                return XCTFail("expected .corrupt, got \(error)")
+            }
+        }
+        // The write never happened.
+        XCTAssertFalse(fs.journal.contains(.writeData("\(home)/.claude/settings.json")))
+    }
+
+    /// A symlinked *parent component* beneath the restore root is equally unsafe:
+    /// writing a history file under a symlinked `~/.claude/projects` would escape.
+    func testSymlinkedParentComponentIsRejected() throws {
+        let home = "/Users/alice"
+        let fs = InMemoryFileSystem()
+        fs.seedDirectory("\(home)/git/App")
+        fs.seedDirectory("\(home)/git/Web")
+        // `~/.claude/projects` itself is a symlink pointing elsewhere.
+        fs.seedSymlink("\(home)/.claude/projects")
+
+        XCTAssertThrowsError(
+            try service(fs: fs, home: home).restore(
+                archive: try sampleArchive(),
+                selection: selection(global: false, projects: ["-Users-alice-git-App"])
+            )
+        ) { error in
+            guard case .corrupt = error as? ArchiveError else {
+                return XCTFail("expected .corrupt, got \(error)")
+            }
+        }
+    }
+
+    /// A symlinked global config-dir *root* (e.g. `~/.claude/commands`) must be
+    /// rejected too. The symlink walk starts below its containment root, so if
+    /// the write were contained against `~/.claude/commands` the root symlink
+    /// would never be checked and `writeData` would follow it outside `~/.claude`.
+    func testSymlinkedGlobalConfigDirRootIsRejected() throws {
+        let home = "/Users/alice"
+        let fs = InMemoryFileSystem()
+        // `~/.claude/commands` itself is a symlink pointing elsewhere. The
+        // sample archive carries `global/dirs/commands/deploy.md`.
+        fs.seedSymlink("\(home)/.claude/commands")
+
+        XCTAssertThrowsError(
+            try service(fs: fs, home: home).restore(
+                archive: try sampleArchive(),
+                selection: selection(global: true, projects: [])
+            )
+        ) { error in
+            guard case .corrupt = error as? ArchiveError else {
+                return XCTFail("expected .corrupt, got \(error)")
+            }
+        }
+        // The write through the symlinked dir never happened.
+        XCTAssertFalse(fs.journal.contains(.writeData("\(home)/.claude/commands/deploy.md")))
+    }
+
+    /// A symlinked `~/.claude.json` on the target must not be written through
+    /// when a project entry is merged into it.
+    func testSymlinkedClaudeJSONTargetIsRejected() throws {
+        let home = "/Users/alice"
+        let fs = InMemoryFileSystem()
+        fs.seedDirectory("\(home)/git/App")
+        fs.seedSymlink("\(home)/.claude.json")
+
+        XCTAssertThrowsError(
+            try service(fs: fs, home: home).restore(
+                archive: try sampleArchive(),
+                selection: selection(global: false, projects: ["-Users-alice-git-App"])
+            )
+        ) { error in
+            guard case .corrupt = error as? ArchiveError else {
+                return XCTFail("expected .corrupt, got \(error)")
+            }
+        }
+        XCTAssertFalse(fs.journal.contains(.writeData("\(home)/.claude.json")))
+    }
 }
