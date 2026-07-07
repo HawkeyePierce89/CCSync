@@ -72,6 +72,9 @@ final class InMemoryFileSystem: FileSystem {
     /// All paths that were touched, in order.
     var touchedPaths: [String] { journal.map(\.path) }
 
+    /// Current backing store contents (test-only), not journalled.
+    var allFiles: [String: Data] { files }
+
     // MARK: - FileSystem
 
     func exists(_ path: String) -> Bool {

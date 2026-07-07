@@ -162,16 +162,16 @@ Files:
 - Create: `Tests/CCSyncCoreTests/RestoreServiceTests.swift`
 - Create: `Tests/CCSyncCoreTests/SelectionTreeTests.swift`
 
-- [ ] `SelectionTree` in Core: global config (on/off on its own) + a "Projects" master + an explicit set of selected projects; with the master off — only global; default — all projects checked. The tree build and mapping to `Selection` live in Core, not the View.
-- [ ] Snapshot of current state before any overwrite.
-- [ ] Snapshot policy: lock in the snapshot location (e.g. `~/.claude/.ccsync-backups/<timestamp>/`), the behavior on a mid-restore failure (leave the snapshot for manual recovery — no auto-rollback, to keep it simple; document explicitly), and the rule for cleaning up old snapshots (or its absence).
-- [ ] Global restore: `settings.json`, `CLAUDE.md`, directories; global `mcpServers` merged into `~/.claude.json` without wiping the rest.
-- [ ] Project restore: user remap in paths and `projects/` directory names (by substitution); if the target project folder at the remapped path is absent — skip (no entry, no history, no garbage), continue, mark it in the report with a reason.
-- [ ] Merge the per-project entry and `mcpServers` into `~/.claude.json` (preserve unknown/future keys); history — union by session UUID, including sub-agent sessions/artifacts (no collisions).
-- [ ] Version check (warning, no stop); idempotence of a repeated restore.
-- [ ] Tests: acceptance 2 (only the selected project / only global), 3 (different username → correct path, including `projects/` directories; internal paths in records remain un-remapped — recorded as expected), 5 (one missing project → partial success + warning), 6 (idempotence + snapshot presence), merge does not overwrite others' entries.
-- [ ] Dedicated history-layout test: after restore the transcripts sit under the remapped `projects/` directory AND the corresponding `file-history/`/`session-env/`/`todos/` by UUID are present (including sub-agents).
-- [ ] `swift test` — green before Task 6.
+- [x] `SelectionTree` in Core: global config (on/off on its own) + a "Projects" master + an explicit set of selected projects; with the master off — only global; default — all projects checked. The tree build and mapping to `Selection` live in Core, not the View.
+- [x] Snapshot of current state before any overwrite.
+- [x] Snapshot policy: lock in the snapshot location (e.g. `~/.claude/.ccsync-backups/<timestamp>/`), the behavior on a mid-restore failure (leave the snapshot for manual recovery — no auto-rollback, to keep it simple; document explicitly), and the rule for cleaning up old snapshots (or its absence). (Decision: location `~/.claude/.ccsync-backups/<timestamp>/`; no auto-rollback on failure; no automatic cleanup — documented in `Snapshot.swift`.)
+- [x] Global restore: `settings.json`, `CLAUDE.md`, directories; global `mcpServers` merged into `~/.claude.json` without wiping the rest.
+- [x] Project restore: user remap in paths and `projects/` directory names (by substitution); if the target project folder at the remapped path is absent — skip (no entry, no history, no garbage), continue, mark it in the report with a reason.
+- [x] Merge the per-project entry and `mcpServers` into `~/.claude.json` (preserve unknown/future keys); history — union by session UUID, including sub-agent sessions/artifacts (no collisions).
+- [x] Version check (warning, no stop); idempotence of a repeated restore.
+- [x] Tests: acceptance 2 (only the selected project / only global), 3 (different username → correct path, including `projects/` directories; internal paths in records remain un-remapped — recorded as expected), 5 (one missing project → partial success + warning), 6 (idempotence + snapshot presence), merge does not overwrite others' entries.
+- [x] Dedicated history-layout test: after restore the transcripts sit under the remapped `projects/` directory AND the corresponding `file-history/`/`session-env/`/`todos/` by UUID are present (including sub-agents).
+- [x] `swift test` — green before Task 6.
 
 ### Task 6: Thin CLI executable (headless e2e)
 
