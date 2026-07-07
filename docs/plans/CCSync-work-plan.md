@@ -115,12 +115,12 @@ Files:
 - Create: `Sources/CCSyncCore/BackupCollector.swift`
 - Create: `Tests/CCSyncCoreTests/BackupCollectorTests.swift`
 
-- [ ] Collect global: `settings.json`, optional `CLAUDE.md` and the directories `commands/agents/skills/rules/output-styles/hooks` (skip missing ones), global `mcpServers` from `~/.claude.json`.
-- [ ] Project list: `projects` keys from `~/.claude.json`, matched with `projects/` directories; per-project entry (generic JSON) + the project's `.claude/settings.local.json` by direct path.
-- [ ] Project history: transcripts `projects/<proj>/*.jsonl` — including sub-agent `agent-<shortId>.jsonl`; extract the full set of session UUIDs (main + sub-agents) and pull in `file-history/<uuid>/`, `session-env/<uuid>/`, `todos/<sessionId>-agent-<agentId>.json`.
-- [ ] Handling list mismatch: an entry exists in `~/.claude.json` but the `projects/<encoded>/` directory does not (and vice versa) — don't fail; the project goes into the manifest with whatever is actually available, and the incompleteness is recorded in the project's metadata.
-- [ ] Fixture-home tests: the collected model contains what's needed and excludes credentials/noise; a dedicated test for sub-agent sessions and their artifacts; a dedicated test for the entry/directory mismatch; assert via the test FS journal — access only to known paths and project paths (no recursive traversal).
-- [ ] `swift test` — green before Task 3.
+- [x] Collect global: `settings.json`, optional `CLAUDE.md` and the directories `commands/agents/skills/rules/output-styles/hooks` (skip missing ones), global `mcpServers` from `~/.claude.json`.
+- [x] Project list: `projects` keys from `~/.claude.json`, matched with `projects/` directories; per-project entry (generic JSON) + the project's `.claude/settings.local.json` by direct path.
+- [x] Project history: transcripts `projects/<proj>/*.jsonl` — including sub-agent `agent-<shortId>.jsonl`; extract the full set of session UUIDs (main + sub-agents) and pull in `file-history/<uuid>/`, `session-env/<uuid>/`, `todos/<sessionId>-agent-<agentId>.json`.
+- [x] Handling list mismatch: an entry exists in `~/.claude.json` but the `projects/<encoded>/` directory does not (and vice versa) — don't fail; the project goes into the manifest with whatever is actually available, and the incompleteness is recorded in the project's metadata.
+- [x] Fixture-home tests: the collected model contains what's needed and excludes credentials/noise; a dedicated test for sub-agent sessions and their artifacts; a dedicated test for the entry/directory mismatch; assert via the test FS journal — access only to known paths and project paths (no recursive traversal).
+- [x] `swift test` — green before Task 3.
 
 ### Task 3: Archive format and backup writing (manifest + payload)
 
