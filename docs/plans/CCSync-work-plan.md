@@ -145,11 +145,11 @@ Files:
 - Create: `Sources/CCSyncCore/RestorePlan.swift` (machine-readable project list from the archive + selection)
 - Create: `Tests/CCSyncCoreTests/ArchiveReaderTests.swift`
 
-- [ ] `ArchiveReader`: read the manifest/payload from `Data`; a corrupt archive or invalid manifest → error (stop).
-- [ ] The "return the project list from the archive" contract: the list of projects with their paths/settings (+ incompleteness flag) for UI and CLI.
-- [ ] `VersionCheck`: compare the source Claude Code version (from the manifest) and the target version obtained via an explicit method — lock in the target-version source (`claude --version` or a known version file). A mismatch → warning, does not block.
-- [ ] Tests: a valid archive parses and returns the list; a corrupt archive/manifest throws an error; the version check returns a warning on mismatch and stays silent on match; behavior when the target version is missing/unreadable (a soft warning, no stop).
-- [ ] `swift test` — green before Task 5.
+- [x] `ArchiveReader`: read the manifest/payload from `Data`; a corrupt archive or invalid manifest → error (stop).
+- [x] The "return the project list from the archive" contract: the list of projects with their paths/settings (+ incompleteness flag) for UI and CLI.
+- [x] `VersionCheck`: compare the source Claude Code version (from the manifest) and the target version obtained via an explicit method — lock in the target-version source (`claude --version` or a known version file). A mismatch → warning, does not block. (Decision: target version via `CommandClaudeVersionProvider` invoking `claude --version`.)
+- [x] Tests: a valid archive parses and returns the list; a corrupt archive/manifest throws an error; the version check returns a warning on mismatch and stays silent on match; behavior when the target version is missing/unreadable (a soft warning, no stop).
+- [x] `swift test` — green before Task 5.
 
 ### Task 5: Restore engine (merge, remap, snapshot, skip, history merge)
 
