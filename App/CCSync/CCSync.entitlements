@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  App Sandbox is intentionally OFF. CCSync reads and writes known paths under
+	  the user's home (~/.claude, ~/.claude.json, and explicit project folders).
+	  A sandboxed app cannot reach arbitrary project directories chosen by the
+	  user without per-path security-scoped bookmarks, which is out of scope; the
+	  binary is distributed via Developer ID + notarization instead of the App Store.
+	-->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+</dict>
+</plist>

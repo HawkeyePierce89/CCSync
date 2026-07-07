@@ -195,11 +195,11 @@ Files:
 - Create: `App/CCSync/CCSync.entitlements` (sandbox off), hardened runtime / Developer ID settings
 - Create: `App/README-build.md` (how to build/sign/notarize)
 
-- [ ] Backup screen: choose the destination directory (default — home directory), run, show the result; file operations are async, the UI does not block.
-- [ ] Restore screen: a "Global config" toggle; a "Projects" master (off → nested toggles inactive); a toggle per project from the archive, all checked by default; run and show the report (including skipped ones).
-- [ ] Views are thin: they render the `SelectionTree` from Core and call the contract (`list`/`restore`), with no business logic and no selection-tree building in the UI.
-- [ ] Target configuration: App Sandbox off, hardened runtime, Developer ID; a note that notarization is only for distributing the binary.
-- [ ] Selection-logic tests live in Core (`SelectionTreeTests`, Task 5) and run via `swift test`; the app target keeps only the thin binding (ViewModel unit tests — optional, where applicable, but the main logic is already covered in Core).
+- [x] Backup screen: choose the destination directory (default — home directory), run, show the result; file operations are async, the UI does not block.
+- [x] Restore screen: a "Global config" toggle; a "Projects" master (off → nested toggles inactive); a toggle per project from the archive, all checked by default; run and show the report (including skipped ones).
+- [x] Views are thin: they render the `SelectionTree` from Core and call the contract (`list`/`restore`), with no business logic and no selection-tree building in the UI.
+- [x] Target configuration: App Sandbox off, hardened runtime, Developer ID; a note that notarization is only for distributing the binary.
+- [x] Selection-logic tests live in Core (`SelectionTreeTests`, Task 5) and run via `swift test`; the app target keeps only the thin binding (ViewModel unit tests — optional, where applicable, but the main logic is already covered in Core).
 
 ### Task 8: Verify acceptance criteria
 
