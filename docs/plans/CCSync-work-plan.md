@@ -203,10 +203,10 @@ Files:
 
 ### Task 8: Verify acceptance criteria
 
-- [ ] `swift test` — the whole suite green.
-- [ ] Run the CLI e2e round-trip and check against acceptance 1–7 (except the app visuals).
-- [ ] Verify no access outside known paths: assert via the test FS journal with calibration — listing of known directories allowed, recursive traversal outside known roots/project paths fails.
-- [ ] Verify that with different usernames the `projects/` directories are remapped, while internal paths in records are not (matching the accepted boundary).
+- [x] `swift test` — the whole suite green. (65/65 tests pass.)
+- [x] Run the CLI e2e round-trip and check against acceptance 1–7 (except the app visuals). (Covered by `CLIEndToEndTests.testBackupListRestoreRoundTrip` + selection-flag tests; acceptance 5/6 covered in `RestoreServiceTests`.)
+- [x] Verify no access outside known paths: assert via the test FS journal with calibration — listing of known directories allowed, recursive traversal outside known roots/project paths fails. (Covered by `BackupCollectorTests` journal allowlist assertion + `testExcludedNoiseIsNeverTouched`; `listDirectory(home)` is never called.)
+- [x] Verify that with different usernames the `projects/` directories are remapped, while internal paths in records are not (matching the accepted boundary). (Covered by `RestoreServiceTests.testDifferentUsernameRemapsPathAndProjectDirButNotRecordInternals`.)
 
 ### Task 9: Update documentation
 
