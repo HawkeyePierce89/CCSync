@@ -187,6 +187,58 @@ final class RestoreServiceTests: XCTestCase {
         )
     }
 
+    // MARK: - Orphan history (a projects/ dir with no ~/.claude.json entry)
+
+    func testOrphanHistoryIsRestoredUnderRemappedEncodedDirNotDropped() throws {
+        let home = "/Users/bob"
+        let fs = InMemoryFileSystem()
+
+        // An orphan: session history exists on the source but there is no
+        // ~/.claude.json entry, so it carries no path and no settings. It must
+        // still be restored (keyed by its encoded name), not silently skipped.
+        let orphanSession = SessionArtifacts(
+            sessionID: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+            isSubAgent: false,
+            transcript: FileBlob(
+                relativePath: "cccccccc-cccc-cccc-cccc-cccccccccccc.jsonl",
+                data: Data("orphan-transcript".utf8)
+            ),
+            fileHistory: [FileBlob(relativePath: "edit-o.json", data: Data("fh-o".utf8))]
+        )
+        let orphan = ProjectEntry(
+            path: "",
+            encodedName: "-Users-alice-git-Orphan",
+            sessions: [orphanSession],
+            incomplete: true,
+            incompleteReason: "no entry in ~/.claude.json"
+        )
+        let model = BackupModel(sourceUser: "alice", global: GlobalConfig(), projects: [orphan])
+        let archive = try ArchiveWriter().makeArchive(from: model)
+
+        let report = try service(fs: fs, home: home).restore(
+            archive: archive,
+            selection: selection(global: false, projects: ["-Users-alice-git-Orphan"])
+        )
+
+        // Reported as restored under the remapped encoded directory, not skipped.
+        XCTAssertTrue(report.skippedProjects.isEmpty)
+        XCTAssertEqual(report.restoredProjects, ["\(home)/.claude/projects/-Users-bob-git-Orphan"])
+
+        // Transcript written under the remapped encoded directory.
+        let transcript = "\(home)/.claude/projects/-Users-bob-git-Orphan/cccccccc-cccc-cccc-cccc-cccccccccccc.jsonl"
+        XCTAssertTrue(fs.exists(transcript))
+        XCTAssertEqual(try fs.readData(transcript), Data("orphan-transcript".utf8))
+
+        // File-history restored by session UUID.
+        XCTAssertTrue(fs.exists("\(home)/.claude/file-history/cccccccc-cccc-cccc-cccc-cccccccccccc/edit-o.json"))
+
+        // No ~/.claude.json project entry is fabricated for an orphan.
+        if fs.exists("\(home)/.claude.json") {
+            let json = try JSONValue(data: fs.readData("\(home)/.claude.json"))
+            XCTAssertNil(json["projects"]?.objectValue?["-Users-bob-git-Orphan"])
+        }
+    }
+
     // MARK: - Security: a hostile archive cannot escape the restore root
 
     func testTraversalInGlobalDirEntryIsRejected() throws {

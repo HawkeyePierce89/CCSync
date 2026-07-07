@@ -88,16 +88,28 @@ public struct RestoreService {
 
         for project in manifest.projects
         where selection.projectEncodedNames.contains(project.encodedName) {
+            let targetEncoded = remap.remapEncodedProjectName(project.encodedName)
+
+            // Orphan history: a `projects/<encoded>/` directory with no
+            // `~/.claude.json` entry (empty path). There is no project folder to
+            // require and no settings to merge, but the session history is keyed
+            // only by the encoded name, so restore it under the remapped encoded
+            // directory rather than dropping it.
             guard !project.path.isEmpty else {
-                report.skippedProjects.append(.init(
-                    path: project.path,
-                    encodedName: project.encodedName,
-                    reason: "project has no path recorded in the archive"
-                ))
+                try restoreProject(
+                    project,
+                    targetPath: "",
+                    targetEncoded: targetEncoded,
+                    reader: reader,
+                    snapshot: snapshot,
+                    captured: &captured,
+                    claudeJSON: &claudeJSON,
+                    dirty: &claudeJSONDirty
+                )
+                report.restoredProjects.append(paths.projectDir(encoded: targetEncoded))
                 continue
             }
             let targetPath = remap.remapAbsolutePath(project.path)
-            let targetEncoded = remap.remapEncodedProjectName(project.encodedName)
             guard fs.isDirectory(targetPath) else {
                 report.skippedProjects.append(.init(
                     path: targetPath,
@@ -170,22 +182,29 @@ public struct RestoreService {
         claudeJSON: inout JSONValue,
         dirty: inout Bool
     ) throws {
-        // Merge the per-project entry into ~/.claude.json under the remapped key,
-        // preserving other projects and any unknown/future keys.
-        if let settings = project.settings {
-            var projects = claudeJSON["projects"]?.objectValue ?? [:]
-            let base = projects[targetPath] ?? .object([:])
-            projects[targetPath] = JSONMerge.merge(base, settings)
-            claudeJSON = setKey("projects", .object(projects), in: claudeJSON)
-            dirty = true
+        // `~/.claude.json` and per-project `.claude/` settings live under the
+        // project folder, so they only apply when we have a real target path.
+        // Orphan history directories (empty path, no `~/.claude.json` entry)
+        // carry no settings and skip this block; their session history below is
+        // keyed by the encoded name and restores regardless.
+        if !targetPath.isEmpty {
+            // Merge the per-project entry into ~/.claude.json under the remapped
+            // key, preserving other projects and any unknown/future keys.
+            if let settings = project.settings {
+                var projects = claudeJSON["projects"]?.objectValue ?? [:]
+                let base = projects[targetPath] ?? .object([:])
+                projects[targetPath] = JSONMerge.merge(base, settings)
+                claudeJSON = setKey("projects", .object(projects), in: claudeJSON)
+                dirty = true
+            }
+
+            if let local = reader.payload(at: ArchiveLayout.projectsPrefix + project.encodedName + "/" + ArchiveLayout.projectLocalSettings) {
+                let target = KnownPaths.join(KnownPaths.join(targetPath, ".claude"), "settings.local.json")
+                try writeWithSnapshot(local, to: target, within: targetPath, snapshot: snapshot, captured: &captured)
+            }
         }
 
         let prefix = ArchiveLayout.projectsPrefix + project.encodedName + "/"
-
-        if let local = reader.payload(at: prefix + ArchiveLayout.projectLocalSettings) {
-            let target = KnownPaths.join(KnownPaths.join(targetPath, ".claude"), "settings.local.json")
-            try writeWithSnapshot(local, to: target, within: targetPath, snapshot: snapshot, captured: &captured)
-        }
 
         // History: route each session payload to its target location by UUID.
         let sessionsPrefix = prefix + ArchiveLayout.sessionsComponent + "/"
