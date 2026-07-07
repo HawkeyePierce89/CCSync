@@ -9,14 +9,24 @@ private func writeLine(_ text: String, to handle: FileHandle) {
     handle.write(Data((text + "\n").utf8))
 }
 
+let arguments = Array(CommandLine.arguments.dropFirst())
+
+// Only `backup` stamps the source version into the manifest, so only shell out
+// to `claude --version` for that command. Every other command (help, list,
+// restore, unknown) would otherwise pay for — and could hang on — a needless
+// subprocess. Restore reads the target version lazily via `versionProvider`.
+let sourceClaudeVersion = arguments.first == "backup"
+    ? CommandClaudeVersionProvider().currentVersion()
+    : nil
+
 let environment = CCSyncCLI.Environment(
     fileSystem: RealFileSystem(),
     home: NSHomeDirectory(),
     stdout: { writeLine($0, to: .standardOutput) },
     stderr: { writeLine($0, to: .standardError) },
     versionProvider: CommandClaudeVersionProvider(),
-    sourceClaudeVersion: CommandClaudeVersionProvider().currentVersion()
+    sourceClaudeVersion: sourceClaudeVersion
 )
 
-let exitCode = CCSyncCLI.run(Array(CommandLine.arguments.dropFirst()), environment: environment)
+let exitCode = CCSyncCLI.run(arguments, environment: environment)
 exit(exitCode)

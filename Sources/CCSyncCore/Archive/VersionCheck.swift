@@ -97,7 +97,10 @@ public struct CommandClaudeVersionProvider: ClaudeVersionProvider {
         process.arguments = arguments
         let stdout = Pipe()
         process.standardOutput = stdout
-        process.standardError = Pipe()
+        // Discard stderr rather than attaching an undrained pipe: an unread
+        // `Pipe()` can deadlock the child if it writes past the pipe buffer
+        // before closing stdout (we only read stdout to EOF below).
+        process.standardError = FileHandle.nullDevice
         do {
             try process.run()
         } catch {
