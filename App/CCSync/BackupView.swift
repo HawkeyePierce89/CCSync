@@ -156,7 +156,6 @@ final class BackupViewModel: ObservableObject {
         destination ?? "Home folder (default)"
     }
 
-    var projectRows: [SelectionTree.Node] { tree?.projects ?? [] }
     var projectsMasterOn: Bool { tree?.projectsMasterSelected ?? false }
 
     /// The grouped, collapsible view of the current projects, derived fresh from the

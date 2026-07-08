@@ -215,7 +215,11 @@ public struct ProjectPathTree: Equatable, Sendable {
         let ka = orderKey(a)
         let kb = orderKey(b)
         if ka.label != kb.label { return ka.label < kb.label }
-        return ka.leafFirst < kb.leafFirst
+        if ka.leafFirst != kb.leafFirst { return ka.leafFirst < kb.leafFirst }
+        // Final deterministic tiebreak on the unique row id — siblings whose labels
+        // differ only by case (distinct trie keys, both kept) would otherwise get an
+        // unstable order from the dictionary-backed trie iteration.
+        return a.id < b.id
     }
 
     /// Case-insensitive label key with a leaf-before-same-named-folder tiebreak. Root

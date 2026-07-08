@@ -162,7 +162,6 @@ final class RestoreViewModel: ObservableObject {
         return parts.joined(separator: " · ")
     }
 
-    var projectRows: [SelectionTree.Node] { tree?.projects ?? [] }
     var projectsMasterOn: Bool { tree?.projectsMasterSelected ?? false }
 
     /// The grouped, collapsible view of the archive's projects, derived fresh from the

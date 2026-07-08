@@ -207,4 +207,68 @@ final class ProjectPathTreeTests: XCTestCase {
         XCTAssertEqual(tree.roots.first?.id, root.pathPrefix)
         XCTAssertEqual(root.children.first?.id, "-Users-a-git-App")
     }
+
+    // MARK: - Multiple top-level roots
+
+    func testMultipleTopLevelRootsAreSortedCaseInsensitively() {
+        let tree = ProjectPathTree(nodes: [
+            node("/Users/a/App", "-Users-a-App"),
+            node("/opt/b/App", "-opt-b-App"),
+        ])
+
+        XCTAssertEqual(tree.roots.count, 2)
+        // "opt/b" sorts before "Users/a" case-insensitively.
+        XCTAssertEqual(folder(tree.roots[0]).label, "/opt/b")
+        XCTAssertEqual(folder(tree.roots[1]).label, "/Users/a")
+    }
+
+    // MARK: - Root-level project-is-also-a-prefix
+
+    func testRootLevelProjectThatIsAlsoAPrefixEmitsLeafBeforeSameNamedFolder() {
+        let tree = ProjectPathTree(nodes: [
+            node("/App", "-App"),
+            node("/App/Sub", "-App-Sub"),
+        ])
+
+        XCTAssertEqual(tree.roots.count, 2)
+        // Leaf /App sorts before its same-named root folder.
+        XCTAssertEqual(leaf(tree.roots[0]).encodedName, "-App")
+        let appFolder = folder(tree.roots[1])
+        XCTAssertEqual(appFolder.label, "/App")
+        XCTAssertEqual(appFolder.pathPrefix, "/App")
+        XCTAssertEqual(appFolder.descendantEncodedNames, ["-App-Sub"])
+    }
+
+    // MARK: - Degenerate path fallback
+
+    func testDegenerateSlashPathLandsInOrphans() {
+        let tree = ProjectPathTree(nodes: [
+            node("/", "-slash"),
+            node("/Users/a/App", "-Users-a-App"),
+        ])
+
+        XCTAssertEqual(tree.orphans.map(\.encodedName), ["-slash"])
+        XCTAssertEqual(tree.roots.count, 1)
+        XCTAssertEqual(folder(tree.roots.first).label, "/Users/a")
+    }
+
+    // MARK: - Empty input
+
+    func testEmptyInputProducesEmptyTree() {
+        let tree = ProjectPathTree(nodes: [])
+        XCTAssertTrue(tree.roots.isEmpty)
+        XCTAssertTrue(tree.orphans.isEmpty)
+    }
+
+    // MARK: - Orphan input-order preservation
+
+    func testMultipleOrphansPreserveInputOrder() {
+        let tree = ProjectPathTree(nodes: [
+            node("", "-orphan-b"),
+            node("", "-orphan-a"),
+        ])
+
+        XCTAssertTrue(tree.roots.isEmpty)
+        XCTAssertEqual(tree.orphans.map(\.encodedName), ["-orphan-b", "-orphan-a"])
+    }
 }
