@@ -104,15 +104,15 @@ regression gate (must stay green with no edits).
 - Modify: `App/CCSync/CCSyncApp.swift`
 - Modify: `App/CCSync.xcodeproj/project.pbxproj`
 
-- [ ] Create `DisclaimerSheet` (View): title, text from `AppLegalText.disclaimer`,
+- [x] Create `DisclaimerSheet` (View): title, text from `AppLegalText.disclaimer`,
   an "I Understand" button. Scrollable content in case the window is small.
-- [ ] In `CCSyncApp`/`RootView` add `@AppStorage("didAcknowledgeDisclaimer")` and
+- [x] In `CCSyncApp`/`RootView` add `@AppStorage("didAcknowledgeDisclaimer")` and
   `.sheet(isPresented:)` shown while the flag is not set. Apply
   `.interactiveDismissDisabled(true)` to the sheet content — this is the modifier
   that blocks dismissal via Escape and click-outside — and provide no close button,
   so the sheet closes only via "I Understand", which sets the flag to `true`.
-- [ ] Add the file to `project.pbxproj` (FileReference/BuildFile/Sources).
-- [ ] Verify: build succeeds.
+- [x] Add the file to `project.pbxproj` (FileReference/BuildFile/Sources).
+- [x] Verify: build succeeds.
 
 ### Task 4: About panel with version and full license text
 

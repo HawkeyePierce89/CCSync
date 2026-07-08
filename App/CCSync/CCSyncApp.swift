@@ -6,10 +6,17 @@ import SwiftUI
 /// CLI uses. No business logic and no selection-tree building live here.
 @main
 struct CCSyncApp: App {
+    /// First-launch acknowledgement of the disclaimer. UI state only (UserDefaults) —
+    /// not selection, so the "logic lives in Core" invariant is untouched.
+    @AppStorage("didAcknowledgeDisclaimer") private var didAcknowledgeDisclaimer = false
+
     var body: some Scene {
         WindowGroup {
             RootView()
                 .frame(minWidth: 560, minHeight: 460)
+                .sheet(isPresented: .constant(!didAcknowledgeDisclaimer)) {
+                    DisclaimerSheet { didAcknowledgeDisclaimer = true }
+                }
         }
         .windowResizability(.contentMinSize)
     }
