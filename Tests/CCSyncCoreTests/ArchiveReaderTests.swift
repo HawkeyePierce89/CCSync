@@ -169,6 +169,22 @@ final class ArchiveReaderTests: XCTestCase {
         }
     }
 
+    func testNewerFormatVersionThrows() {
+        // A structurally valid manifest whose formatVersion is newer than this
+        // build supports must be rejected, not silently reinterpreted as v1.
+        let container = ArchiveContainer.pack([
+            .init(
+                path: ArchiveLayout.manifest,
+                data: Data(#"{"formatVersion":2,"sourceUser":"alice","projects":[]}"#.utf8)
+            )
+        ])
+        XCTAssertThrowsError(try ArchiveReader(data: container)) { error in
+            guard case .invalidManifest = (error as? ArchiveError) else {
+                return XCTFail("expected .invalidManifest, got \(error)")
+            }
+        }
+    }
+
     // MARK: - VersionCheck
 
     private struct StubProvider: ClaudeVersionProvider {

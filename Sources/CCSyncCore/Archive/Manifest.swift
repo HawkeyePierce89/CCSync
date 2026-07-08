@@ -133,6 +133,14 @@ public struct Manifest: Equatable, Sendable {
         guard let formatVersion = object["formatVersion"]?.intValue else {
             throw ArchiveError.invalidManifest("missing formatVersion")
         }
+        // The format version gates incompatible layout/manifest changes. A binary
+        // must not silently reinterpret a newer archive as the version it knows —
+        // stop with a clear error rather than restore misread data.
+        guard formatVersion <= Manifest.currentFormatVersion else {
+            throw ArchiveError.invalidManifest(
+                "unsupported archive format version \(formatVersion) (this build supports up to \(Manifest.currentFormatVersion))"
+            )
+        }
         guard let sourceUser = object["sourceUser"]?.stringValue else {
             throw ArchiveError.invalidManifest("missing sourceUser")
         }
