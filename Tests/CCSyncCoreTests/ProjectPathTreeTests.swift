@@ -260,6 +260,32 @@ final class ProjectPathTreeTests: XCTestCase {
         XCTAssertTrue(tree.orphans.isEmpty)
     }
 
+    // MARK: - Duplicate non-empty paths
+
+    func testDuplicatePathsEachGetTheirOwnLeafAndStayInFolderDescendants() {
+        // A crafted/older archive can carry two projects with the same non-empty path but
+        // distinct encoded names. Neither may be silently hidden from the tree while
+        // SelectionTree keeps both selectable.
+        let tree = ProjectPathTree(nodes: [
+            node("/Users/a/git/App", "-Users-a-git-App"),
+            node("/Users/a/git/App", "-Users-a-git-App-dup"),
+        ])
+
+        // Compacts to /Users/a/git holding both same-path leaves (no children on either).
+        let gitFolder = folder(tree.roots.first)
+        XCTAssertEqual(gitFolder.label, "/Users/a/git")
+        XCTAssertEqual(gitFolder.children.count, 2)
+        XCTAssertEqual(gitFolder.children.map { leaf($0).encodedName }.sorted(), [
+            "-Users-a-git-App",
+            "-Users-a-git-App-dup",
+        ])
+        // Both encoded names remain reachable through the folder tri-state helpers.
+        XCTAssertEqual(gitFolder.descendantEncodedNames, [
+            "-Users-a-git-App",
+            "-Users-a-git-App-dup",
+        ])
+    }
+
     // MARK: - Orphan input-order preservation
 
     func testMultipleOrphansPreserveInputOrder() {

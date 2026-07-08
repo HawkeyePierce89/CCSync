@@ -21,6 +21,10 @@ import Foundation
 ///     label, with a leaf-before-same-named-folder tiebreak.
 ///   - **Orphans (`path.isEmpty`):** collected into `orphans`, never placed in the
 ///     hierarchy.
+///   - **Duplicate paths:** two projects sharing the same non-empty `path` (distinct
+///     encoded names, only possible from a crafted/older archive) each get their own leaf
+///     row and both appear in the enclosing folder's `descendantEncodedNames` — neither is
+///     silently dropped from the tree.
 public struct ProjectPathTree: Equatable, Sendable {
 
     /// One row in the tree: either a folder (grouping) or a project (leaf).
@@ -119,7 +123,11 @@ public struct ProjectPathTree: Equatable, Sendable {
                     cur = created
                 }
             }
-            cur.leaf = node
+            // Two manifest projects can share the same non-empty `path` with distinct
+            // encoded names (a crafted/older archive — the array is not uniqueness-checked
+            // on parse). Keep every leaf at the node rather than overwriting, so none is
+            // silently hidden from the tree while `SelectionTree` still has it selected.
+            cur.leaves.append(node)
         }
 
         var rootRows: [Row] = []
@@ -135,18 +143,20 @@ public struct ProjectPathTree: Equatable, Sendable {
     // MARK: - Derivation
 
     private static func rows(for node: TrieNode, segment: String, parentPath: String, isRoot: Bool) -> [Row] {
-        let isProject = node.leaf != nil
+        let isProject = !node.leaves.isEmpty
         let hasChildren = !node.children.isEmpty
 
         if isProject && !hasChildren {
-            return [.project(makeLeaf(node.leaf!))]
+            // Usually one leaf; more than one only for duplicate-path manifests. The
+            // caller sorts siblings, so multiple same-path leaves order deterministically.
+            return node.leaves.map { .project(makeLeaf($0)) }
         }
         if isProject && hasChildren {
-            // Project-is-also-a-prefix: leaf first, then a same-named folder (no
-            // top-label compaction) holding the descendants.
-            let leafRow = Row.project(makeLeaf(node.leaf!))
-            let folderRow = makeFolderRow(node, segment: segment, parentPath: parentPath, isRoot: isRoot, compactTopLabel: false)
-            return [leafRow, folderRow]
+            // Project-is-also-a-prefix: the project leaf(s) first, then a same-named folder
+            // (no top-label compaction) holding the descendants.
+            var result = node.leaves.map { Row.project(makeLeaf($0)) }
+            result.append(makeFolderRow(node, segment: segment, parentPath: parentPath, isRoot: isRoot, compactTopLabel: false))
+            return result
         }
         // Pure folder — eligible for top-label compaction.
         return [makeFolderRow(node, segment: segment, parentPath: parentPath, isRoot: isRoot, compactTopLabel: true)]
@@ -166,10 +176,10 @@ public struct ProjectPathTree: Equatable, Sendable {
         if compactTopLabel {
             // Merge a chain of single-child folders. Stop at a project, a leaf child, or
             // a multi-child folder.
-            while current.leaf == nil,
+            while current.leaves.isEmpty,
                   current.children.count == 1,
                   let (childSegment, child) = current.children.first,
-                  child.leaf == nil,
+                  child.leaves.isEmpty,
                   !child.children.isEmpty {
                 label += "/" + childSegment
                 path += "/" + childSegment
@@ -189,8 +199,8 @@ public struct ProjectPathTree: Equatable, Sendable {
 
     private static func collectDescendants(_ node: TrieNode, includeSelf: Bool) -> [String] {
         var out: [String] = []
-        if includeSelf, let leaf = node.leaf {
-            out.append(leaf.encodedName)
+        if includeSelf {
+            out.append(contentsOf: node.leaves.map(\.encodedName))
         }
         for (_, child) in node.children {
             out.append(contentsOf: collectDescendants(child, includeSelf: true))
@@ -247,8 +257,10 @@ public struct ProjectPathTree: Equatable, Sendable {
 }
 
 /// Mutable segment trie used only while deriving `ProjectPathTree`. A node is a project
-/// when `leaf != nil` and a folder when it has children; it can be both.
+/// when `leaves` is non-empty and a folder when it has children; it can be both. `leaves`
+/// holds more than one entry only for the rare duplicate-path manifest, where each is
+/// still emitted as its own row rather than being overwritten.
 private final class TrieNode {
     var children: [String: TrieNode] = [:]
-    var leaf: SelectionTree.Node?
+    var leaves: [SelectionTree.Node] = []
 }

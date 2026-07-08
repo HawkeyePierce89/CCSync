@@ -112,19 +112,28 @@ private struct TreeRow: View {
     private func folderHeader(_ folder: ProjectPathTree.Folder) -> some View {
         let state = folderState(folder.descendantEncodedNames)
         let disabled = isRunning || !projectsMasterOn
-        HStack(spacing: 6) {
-            Image(systemName: checkboxImage(state))
-                .foregroundStyle(disabled ? Color.secondary : Color.accentColor)
-            Text(folder.label)
-                .lineLimit(1).truncationMode(.middle)
-                .foregroundStyle(disabled ? .secondary : .primary)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard !disabled else { return }
+        // A real Button (not an Image + onTapGesture) so the tri-state control is
+        // keyboard-focusable, carries the button trait, and honours `.disabled` for
+        // VoiceOver. Its accessibility value announces on/off/mixed. `.plain` keeps the
+        // borderless checkbox+label look; the DisclosureGroup's own chevron still drives
+        // expand/collapse separately.
+        Button {
             // Tap semantics: on → off, off/mixed → on.
             toggleFolder(folder.descendantEncodedNames, state != .on)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: checkboxImage(state))
+                    .foregroundStyle(disabled ? Color.secondary : Color.accentColor)
+                Text(folder.label)
+                    .lineLimit(1).truncationMode(.middle)
+                    .foregroundStyle(disabled ? .secondary : .primary)
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .accessibilityLabel(folder.label)
+        .accessibilityValue(accessibilityValue(state))
     }
 
     private func checkboxImage(_ state: FolderCheckState) -> String {
@@ -132,6 +141,14 @@ private struct TreeRow: View {
         case .on: return "checkmark.square.fill"
         case .off: return "square"
         case .mixed: return "minus.square.fill"
+        }
+    }
+
+    private func accessibilityValue(_ state: FolderCheckState) -> String {
+        switch state {
+        case .on: return "checked"
+        case .off: return "unchecked"
+        case .mixed: return "mixed"
         }
     }
 }

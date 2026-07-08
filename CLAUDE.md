@@ -98,7 +98,11 @@ The machine-readable seam shared by CLI and GUI:
   leaf, then a same-named folder of its descendants), leaf sorting first. **Child
   ordering** — case-insensitive by label with a leaf-before-same-named-folder tiebreak.
   **Orphans** (`path.isEmpty`) go to `orphans`, rendered after the tree, never in the
-  hierarchy. **Ignore-unknown-names** — `folderState` skips encoded names not present in
+  hierarchy. **Duplicate paths** — two projects that share the same non-empty `path` with
+  distinct encoded names (only from a crafted/older archive; local backups are path-keyed
+  and unique) each emit their own leaf row and both appear in the enclosing folder's
+  `descendantEncodedNames`, so neither is silently hidden while `SelectionTree` still holds
+  it selectable. **Ignore-unknown-names** — `folderState` skips encoded names not present in
   the tree (an all-unknown list derives `.off`) and `setFolder`/`setProject` no-op on them,
   since the derived name list may in theory lag the live tree. The archive format, CLI, and
   `resolvedSelection()` are untouched.
