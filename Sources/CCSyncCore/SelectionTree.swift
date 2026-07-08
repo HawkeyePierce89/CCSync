@@ -36,14 +36,42 @@ public struct SelectionTree: Equatable, Sendable {
         public var encodedName: String
         /// Carried over from backup: the entry/directory pair was not both present.
         public var incomplete: Bool
+        /// Raw reason string carried from the manifest, for the human-readable
+        /// mapping in `incompleteSummary`. `nil` when the source did not record one.
+        public var incompleteReason: String?
         /// Whether this project is checked for restore.
         public var isSelected: Bool
 
-        public init(path: String, encodedName: String, incomplete: Bool, isSelected: Bool) {
+        public init(
+            path: String,
+            encodedName: String,
+            incomplete: Bool,
+            isSelected: Bool,
+            incompleteReason: String? = nil
+        ) {
             self.path = path
             self.encodedName = encodedName
             self.incomplete = incomplete
             self.isSelected = isSelected
+            self.incompleteReason = incompleteReason
+        }
+
+        /// Human-readable one-line summary of the incompleteness, shared by the
+        /// Backup and Restore screens (invariant #4 — one wording, in Core). The
+        /// incomplete signal is never silently lost: while `incomplete == true`
+        /// this is always non-`nil`.
+        public var incompleteSummary: String? {
+            guard incomplete else { return nil }
+            switch incompleteReason {
+            case "no history directory on disk":
+                return "settings only — no session history"
+            case "no entry in ~/.claude.json":
+                return "history only — no project settings"
+            case let reason? where !reason.isEmpty:
+                return reason
+            default:
+                return "incomplete backup"
+            }
         }
     }
 
@@ -71,7 +99,7 @@ public struct SelectionTree: Equatable, Sendable {
             globalSelected: true,
             projectsMasterSelected: true,
             projects: plan.projects.map {
-                Node(path: $0.path, encodedName: $0.encodedName, incomplete: $0.incomplete, isSelected: true)
+                Node(path: $0.path, encodedName: $0.encodedName, incomplete: $0.incomplete, isSelected: true, incompleteReason: $0.incompleteReason)
             }
         )
     }
@@ -84,7 +112,7 @@ public struct SelectionTree: Equatable, Sendable {
             globalSelected: true,
             projectsMasterSelected: true,
             projects: plan.projects.map {
-                Node(path: $0.path, encodedName: $0.encodedName, incomplete: $0.incomplete, isSelected: true)
+                Node(path: $0.path, encodedName: $0.encodedName, incomplete: $0.incomplete, isSelected: true, incompleteReason: $0.incompleteReason)
             }
         )
     }

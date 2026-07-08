@@ -14,7 +14,7 @@ final class SelectionTreeTests: XCTestCase {
                     path: "/Users/alice/git/Ghost",
                     encodedName: "-Users-alice-git-Ghost",
                     incomplete: true,
-                    incompleteReason: "directory missing"
+                    incompleteReason: "no entry in ~/.claude.json"
                 ),
             ]
         )
@@ -71,6 +71,86 @@ final class SelectionTreeTests: XCTestCase {
             selection.projectEncodedNames,
             ["-Users-alice-git-App", "-Users-alice-git-Web", "-Users-alice-git-Ghost"]
         )
+    }
+
+    // MARK: - Incomplete reason carried through and mapped to human wording
+
+    func testIncompleteReasonCarriedThroughRestorePlanBuilder() {
+        let tree = SelectionTree(plan: samplePlan())
+        let ghost = tree.projects.first { $0.encodedName.hasSuffix("Ghost") }
+        XCTAssertEqual(ghost?.incompleteReason, "no entry in ~/.claude.json")
+    }
+
+    func testIncompleteReasonCarriedThroughBackupPlanBuilder() {
+        let tree = SelectionTree(plan: sampleBackupPlan())
+        let ghost = tree.projects.first { $0.encodedName.hasSuffix("Ghost") }
+        XCTAssertEqual(ghost?.incompleteReason, "no history directory on disk")
+    }
+
+    func testIncompleteSummaryMapsKnownReasonsViaPlanBuilders() {
+        // RestorePlan Ghost: orphaned directory, no entry in ~/.claude.json.
+        let restoreGhost = SelectionTree(plan: samplePlan())
+            .projects.first { $0.encodedName.hasSuffix("Ghost") }
+        XCTAssertEqual(restoreGhost?.incompleteSummary, "history only — no project settings")
+
+        // BackupPlan Ghost: entry present but no history directory on disk.
+        let backupGhost = SelectionTree(plan: sampleBackupPlan())
+            .projects.first { $0.encodedName.hasSuffix("Ghost") }
+        XCTAssertEqual(backupGhost?.incompleteSummary, "settings only — no session history")
+    }
+
+    func testIncompleteSummaryReturnsUnknownReasonAsIs() {
+        let node = SelectionTree.Node(
+            path: "/Users/alice/git/X",
+            encodedName: "-Users-alice-git-X",
+            incomplete: true,
+            isSelected: true,
+            incompleteReason: "some other reason"
+        )
+        XCTAssertEqual(node.incompleteSummary, "some other reason")
+    }
+
+    func testIncompleteSummaryIsNilForCompleteProject() {
+        let complete = SelectionTree(plan: samplePlan())
+            .projects.first { $0.encodedName.hasSuffix("App") }
+        XCTAssertNil(complete?.incompleteSummary)
+    }
+
+    func testIncompleteSummaryFallsBackToGenericWhenReasonMissing() {
+        let node = SelectionTree.Node(
+            path: "/Users/alice/git/X",
+            encodedName: "-Users-alice-git-X",
+            incomplete: true,
+            isSelected: true,
+            incompleteReason: nil
+        )
+        // The orange label must never silently disappear while incomplete == true.
+        XCTAssertEqual(node.incompleteSummary, "incomplete backup")
+    }
+
+    func testIncompleteSummaryFallsBackToGenericWhenReasonEmpty() {
+        let node = SelectionTree.Node(
+            path: "/Users/alice/git/X",
+            encodedName: "-Users-alice-git-X",
+            incomplete: true,
+            isSelected: true,
+            incompleteReason: ""
+        )
+        // An empty reason must not render as an empty orange label — the
+        // `where !reason.isEmpty` guard falls through to the generic wording.
+        XCTAssertEqual(node.incompleteSummary, "incomplete backup")
+    }
+
+    func testIncompleteSummaryIsNilForCompleteNodeEvenWithReason() {
+        let node = SelectionTree.Node(
+            path: "/Users/alice/git/X",
+            encodedName: "-Users-alice-git-X",
+            incomplete: false,
+            isSelected: true,
+            incompleteReason: "no history directory on disk"
+        )
+        // `incomplete == false` must win over any stale reason — no spurious label.
+        XCTAssertNil(node.incompleteSummary)
     }
 
     // MARK: - Projects master gates the whole set
