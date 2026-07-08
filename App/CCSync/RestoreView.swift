@@ -20,7 +20,12 @@ struct RestoreView: View {
                 Text("Open a CCSync archive to choose what to restore.")
                     .foregroundStyle(.secondary)
             } else {
-                selection
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        selection
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 runRow
             }
 
@@ -74,8 +79,8 @@ struct RestoreView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(row.path.isEmpty ? row.encodedName : row.path)
                         .lineLimit(1).truncationMode(.middle)
-                    if row.incomplete {
-                        Text("incomplete backup").font(.caption2).foregroundStyle(.orange)
+                    if let summary = row.incompleteSummary {
+                        Text(summary).font(.caption2).foregroundStyle(.orange)
                     }
                 }
             }
@@ -102,32 +107,37 @@ private struct ReportView: View {
 
     var body: some View {
         GroupBox("Result") {
-            VStack(alignment: .leading, spacing: 6) {
-                if report.globalRestored {
-                    Label("Global config restored", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+            // Bound a long report (e.g. ~50 restored projects) so it scrolls
+            // internally instead of pushing the Run button off-screen.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    if report.globalRestored {
+                        Label("Global config restored", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                    ForEach(report.restoredProjects, id: \.self) { path in
+                        Label(path, systemImage: "checkmark.circle")
+                            .lineLimit(1).truncationMode(.middle)
+                    }
+                    ForEach(report.skippedProjects, id: \.encodedName) { skipped in
+                        Label("\(skipped.path) — \(skipped.reason)", systemImage: "minus.circle")
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                    ForEach(report.warnings, id: \.self) { warning in
+                        Label(warning, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let snapshot = report.snapshotPath {
+                        Text("Snapshot: \(snapshot)")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
                 }
-                ForEach(report.restoredProjects, id: \.self) { path in
-                    Label(path, systemImage: "checkmark.circle")
-                        .lineLimit(1).truncationMode(.middle)
-                }
-                ForEach(report.skippedProjects, id: \.encodedName) { skipped in
-                    Label("\(skipped.path) — \(skipped.reason)", systemImage: "minus.circle")
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-                ForEach(report.warnings, id: \.self) { warning in
-                    Label(warning, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let snapshot = report.snapshotPath {
-                    Text("Snapshot: \(snapshot)")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxHeight: 240)
         }
     }
 }

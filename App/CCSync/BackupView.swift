@@ -26,7 +26,12 @@ struct BackupView: View {
             destinationRow
 
             if model.tree != nil {
-                selection
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        selection
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             } else if model.errorMessage == nil {
                 Text("Reading local config…")
                     .foregroundStyle(.secondary)
@@ -101,8 +106,8 @@ struct BackupView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(row.path.isEmpty ? row.encodedName : row.path)
                         .lineLimit(1).truncationMode(.middle)
-                    if row.incomplete {
-                        Text("incomplete backup").font(.caption2).foregroundStyle(.orange)
+                    if let summary = row.incompleteSummary {
+                        Text(summary).font(.caption2).foregroundStyle(.orange)
                     }
                 }
             }

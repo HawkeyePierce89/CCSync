@@ -54,13 +54,13 @@ A targeted UX fix for two screens (Backup/Restore) with no redesign. Core: carry
 - Modify: `App/CCSync/BackupView.swift`
 - Modify: `App/CCSync/RestoreView.swift`
 
-- [ ] BackupView: in `selection` replace `if row.incomplete { Text("incomplete backup")... }` with rendering `row.incompleteSummary` (`if let summary = row.incompleteSummary { Text(summary)... }`), keeping `.font(.caption2).foregroundStyle(.orange)`.
-- [ ] RestoreView: same replacement in `selection`.
-- [ ] BackupView: wrap the selection block (Global/Projects toggles + project `ForEach`) in a `ScrollView`; outside the scroll and always visible — header, description, destinationRow, runRow, result/error block.
-- [ ] RestoreView: wrap the selection block (sourceSummary + Global/Projects toggles + project `ForEach`) in a `ScrollView`; outside the scroll — header, runRow, ReportView/error. Note `runRow` renders before the report, so keeping Run outside the selection scroll keeps it visible above the report.
-- [ ] RestoreView: bound the long-report case — `ReportView` renders `ForEach` over `restoredProjects`/`skippedProjects`/`warnings`, which with ~50 projects grows past the window. Wrap the report content in a `ScrollView` with a capped `.frame(maxHeight:)` (e.g. ~240pt) so the report scrolls internally and never pushes the Run button off-screen. Keep the `GroupBox("Result")` framing and existing labels/styling.
-- [ ] Ensure the layout allows the selection ScrollView to compress vertically (Run and result do not slide off-screen with a long list; adjust `Spacer`/`frame` if needed without restructuring the screens).
-- [ ] `swift test` — green (Core untouched, regression check).
+- [x] BackupView: in `selection` replace `if row.incomplete { Text("incomplete backup")... }` with rendering `row.incompleteSummary` (`if let summary = row.incompleteSummary { Text(summary)... }`), keeping `.font(.caption2).foregroundStyle(.orange)`.
+- [x] RestoreView: same replacement in `selection`.
+- [x] BackupView: wrap the selection block (Global/Projects toggles + project `ForEach`) in a `ScrollView`; outside the scroll and always visible — header, description, destinationRow, runRow, result/error block.
+- [x] RestoreView: wrap the selection block (sourceSummary + Global/Projects toggles + project `ForEach`) in a `ScrollView`; outside the scroll — header, runRow, ReportView/error. Note `runRow` renders before the report, so keeping Run outside the selection scroll keeps it visible above the report.
+- [x] RestoreView: bound the long-report case — `ReportView` renders `ForEach` over `restoredProjects`/`skippedProjects`/`warnings`, which with ~50 projects grows past the window. Wrap the report content in a `ScrollView` with a capped `.frame(maxHeight:)` (e.g. ~240pt) so the report scrolls internally and never pushes the Run button off-screen. Keep the `GroupBox("Result")` framing and existing labels/styling.
+- [x] Ensure the layout allows the selection ScrollView to compress vertically (Run and result do not slide off-screen with a long list; adjust `Spacer`/`frame` if needed without restructuring the screens).
+- [x] `swift test` — green (Core untouched, regression check).
 
 ### Task 3: Verify acceptance criteria
 
