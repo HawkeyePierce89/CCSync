@@ -212,6 +212,48 @@ final class RestoreServiceTests: XCTestCase {
         XCTAssertEqual(try fs.readData("\(home)/.claude/commands/x.md"), Data("run x".utf8))
     }
 
+    /// A global layer carrying only `settings.json` (no CLAUDE.md/configDirs/
+    /// mcpServers) still counts as applied: settings.json is written and
+    /// `globalRestored` is true. Isolates the settings write path so a regression
+    /// dropping its `applied = true` is caught.
+    func testGlobalWithOnlySettingsReportsRestoredTrue() throws {
+        let home = "/Users/alice"
+        let fs = InMemoryFileSystem()
+
+        let global = GlobalConfig(settings: Data(#"{"theme":"dark"}"#.utf8))
+        let model = BackupModel(sourceUser: "alice", global: global, projects: [])
+        let archive = try ArchiveWriter().makeArchive(from: model)
+
+        let report = try service(fs: fs, home: home).restore(
+            archive: archive,
+            selection: selection(global: true, projects: [])
+        )
+
+        XCTAssertTrue(report.globalRestored)
+        XCTAssertEqual(try fs.readData("\(home)/.claude/settings.json"), Data(#"{"theme":"dark"}"#.utf8))
+    }
+
+    /// A global layer carrying only `CLAUDE.md` (no settings/configDirs/mcpServers)
+    /// still counts as applied: CLAUDE.md is written and `globalRestored` is true.
+    /// Isolates the CLAUDE.md write path so a regression dropping its
+    /// `applied = true` is caught.
+    func testGlobalWithOnlyClaudeMDReportsRestoredTrue() throws {
+        let home = "/Users/alice"
+        let fs = InMemoryFileSystem()
+
+        let global = GlobalConfig(claudeMD: Data("# global rules".utf8))
+        let model = BackupModel(sourceUser: "alice", global: global, projects: [])
+        let archive = try ArchiveWriter().makeArchive(from: model)
+
+        let report = try service(fs: fs, home: home).restore(
+            archive: archive,
+            selection: selection(global: true, projects: [])
+        )
+
+        XCTAssertTrue(report.globalRestored)
+        XCTAssertEqual(try fs.readData("\(home)/.claude/CLAUDE.md"), Data("# global rules".utf8))
+    }
+
     // MARK: - Acceptance 3: different username → remapped path + projects/ dir
 
     func testDifferentUsernameRemapsPathAndProjectDirButNotRecordInternals() throws {
