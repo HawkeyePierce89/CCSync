@@ -94,20 +94,20 @@ they are.
 **Files:**
 - Modify: `Tests/CCSyncCoreTests/RestoreServiceTests.swift`
 
-- [ ] Add an "mcpServers-only" test: archive with `GlobalConfig(mcpServers: .object(...))`
+- [x] Add an "mcpServers-only" test: archive with `GlobalConfig(mcpServers: .object(...))`
   and no settings/CLAUDE.md/configDirs; restore with `selection(global: true, projects: [])`
   → `XCTAssertTrue(report.globalRestored)`.
-- [ ] In that test, assert the `~/.claude.json` write the way the code actually
+- [x] In that test, assert the `~/.claude.json` write the way the code actually
   performs it: the merge only flips the in-memory `dirty` flag, and the single disk
   write happens at the end of `restore()`. So assert
   `XCTAssertTrue(fs.journal.contains(.writeData("\(home)/.claude.json")))` AND read the
   file back and assert the merged `mcpServers` content is present — do not assert
   anything "inside" `restoreGlobal`.
-- [ ] Add a "config-dir-only" test: archive with
+- [x] Add a "config-dir-only" test: archive with
   `GlobalConfig(configDirs: [ConfigDir(name: "commands", files: [FileBlob(relativePath: "x.md", ...)])])`
   and no settings/CLAUDE.md/mcpServers; restore → `XCTAssertTrue(report.globalRestored)`;
   assert the file was written to `~/.claude/commands/x.md`.
-- [ ] `swift test` — green.
+- [x] `swift test` — green.
 
 ### Task 3: Verify acceptance criteria
 
