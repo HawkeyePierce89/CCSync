@@ -128,6 +128,31 @@ final class SelectionTreeTests: XCTestCase {
         XCTAssertEqual(node.incompleteSummary, "incomplete backup")
     }
 
+    func testIncompleteSummaryFallsBackToGenericWhenReasonEmpty() {
+        let node = SelectionTree.Node(
+            path: "/Users/alice/git/X",
+            encodedName: "-Users-alice-git-X",
+            incomplete: true,
+            isSelected: true,
+            incompleteReason: ""
+        )
+        // An empty reason must not render as an empty orange label — the
+        // `where !reason.isEmpty` guard falls through to the generic wording.
+        XCTAssertEqual(node.incompleteSummary, "incomplete backup")
+    }
+
+    func testIncompleteSummaryIsNilForCompleteNodeEvenWithReason() {
+        let node = SelectionTree.Node(
+            path: "/Users/alice/git/X",
+            encodedName: "-Users-alice-git-X",
+            incomplete: false,
+            isSelected: true,
+            incompleteReason: "no history directory on disk"
+        )
+        // `incomplete == false` must win over any stale reason — no spurious label.
+        XCTAssertNil(node.incompleteSummary)
+    }
+
     // MARK: - Projects master gates the whole set
 
     func testProjectsMasterOffYieldsOnlyGlobal() {
