@@ -39,6 +39,40 @@ final class SelectionTreeTests: XCTestCase {
         )
     }
 
+    // MARK: - Backup plan builder
+
+    private func sampleBackupPlan() -> BackupPlan {
+        BackupPlan(
+            sourceUser: "alice",
+            projects: [
+                ManifestProject(path: "/Users/alice/git/App", encodedName: "-Users-alice-git-App"),
+                ManifestProject(path: "/Users/alice/git/Web", encodedName: "-Users-alice-git-Web"),
+                ManifestProject(
+                    path: "/Users/alice/git/Ghost",
+                    encodedName: "-Users-alice-git-Ghost",
+                    incomplete: true,
+                    incompleteReason: "no history directory on disk"
+                ),
+            ]
+        )
+    }
+
+    func testBackupPlanBuildSelectsGlobalMasterAndAllProjects() {
+        let tree = SelectionTree(plan: sampleBackupPlan())
+        XCTAssertTrue(tree.globalSelected)
+        XCTAssertTrue(tree.projectsMasterSelected)
+        XCTAssertEqual(tree.projects.count, 3)
+        XCTAssertTrue(tree.projects.allSatisfy(\.isSelected))
+        XCTAssertEqual(tree.projects.first { $0.encodedName.hasSuffix("Ghost") }?.incomplete, true)
+
+        let selection = tree.resolvedSelection()
+        XCTAssertTrue(selection.global)
+        XCTAssertEqual(
+            selection.projectEncodedNames,
+            ["-Users-alice-git-App", "-Users-alice-git-Web", "-Users-alice-git-Ghost"]
+        )
+    }
+
     // MARK: - Projects master gates the whole set
 
     func testProjectsMasterOffYieldsOnlyGlobal() {

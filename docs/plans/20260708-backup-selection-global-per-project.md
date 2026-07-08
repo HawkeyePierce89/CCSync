@@ -65,9 +65,9 @@ Selection contract: `Selection` is the seam. `nil` means "everything selected" a
 - Modify: `Sources/CCSyncCore/SelectionTree.swift`
 - Modify: `Tests/CCSyncCoreTests/SelectionTreeTests.swift`
 
-- [ ] Add `init(plan: BackupPlan)` modeled on `init(plan: RestorePlan)`: global on, master on, all projects selected; `Node` from `path`/`encodedName`/`incomplete`. Do not touch `Selection`.
-- [ ] Test: `SelectionTree(plan: BackupPlan)` yields the "everything on" default and a correct `resolvedSelection()` (global true, all encodedName in the set).
-- [ ] `swift test` — green before Task 3.
+- [x] Add `init(plan: BackupPlan)` modeled on `init(plan: RestorePlan)`: global on, master on, all projects selected; `Node` from `path`/`encodedName`/`incomplete`. Do not touch `Selection`.
+- [x] Test: `SelectionTree(plan: BackupPlan)` yields the "everything on" default and a correct `resolvedSelection()` (global true, all encodedName in the set).
+- [x] `swift test` — green before Task 3.
 
 ### Task 3: Core — selective collection + round-trip
 
