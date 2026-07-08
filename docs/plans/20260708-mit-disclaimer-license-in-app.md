@@ -58,15 +58,15 @@ regression gate (must stay green with no edits).
 **Files:**
 - Modify: `App/CCSync.xcodeproj/project.pbxproj`
 
-- [ ] Add a PBXFileReference to LICENSE: `path = "../LICENSE"`, `name = LICENSE`,
+- [x] Add a PBXFileReference to LICENSE: `path = "../LICENSE"`, `name = LICENSE`,
   `lastKnownFileType = text`, `sourceTree = "<group>"`, placed in the root group
   (resolves as `App/../LICENSE` = repo root) with a fresh unique ID in the `AA0000…`
   style.
-- [ ] Add a PBXBuildFile for that reference and add it to the `files` of the empty
+- [x] Add a PBXBuildFile for that reference and add it to the `files` of the empty
   Resources build phase `AA000000000000000000000F`.
-- [ ] Add the reference to the children of the root/CCSync group so the file is
+- [x] Add the reference to the children of the root/CCSync group so the file is
   visible in the navigator (no text copy).
-- [ ] Verify: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync
+- [x] Verify: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync
   -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` succeeds and
   `dist/CCSync.app/Contents/Resources/LICENSE` is present.
 
