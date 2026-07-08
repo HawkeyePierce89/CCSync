@@ -106,13 +106,15 @@ struct BackupView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(row.path.isEmpty ? row.encodedName : row.path)
                         .lineLimit(1).truncationMode(.middle)
+                        .foregroundStyle(row.isSelectable ? .primary : .secondary)
                     if let summary = row.incompleteSummary {
-                        Text(summary).font(.caption2).foregroundStyle(.orange)
+                        Text(summary).font(.caption2)
+                            .foregroundStyle(row.isSelectable ? .orange : .secondary)
                     }
                 }
             }
             .padding(.leading, 20)
-            .disabled(model.isRunning || !model.projectsMasterOn)
+            .disabled(model.isRunning || !model.projectsMasterOn || !row.isSelectable)
         }
     }
 

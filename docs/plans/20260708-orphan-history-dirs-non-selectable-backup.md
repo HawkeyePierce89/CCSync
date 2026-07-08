@@ -59,12 +59,12 @@ Orphaned history directories (`~/.claude/projects/<encoded>/` with no entry in `
 - Modify: `App/CCSync/BackupView.swift`
 - Modify: `App/CCSync/RestoreView.swift`
 
-- [ ] In both screens inside `ForEach(model.projectRows…)`:
+- [x] In both screens inside `ForEach(model.projectRows…)`:
   - row toggle — `.disabled(model.isRunning || !model.projectsMasterOn || !row.isSelectable)` (the "Projects" master does not affect non-selectable rows: they are always disabled).
   - name/path `Text(...)` — `.foregroundStyle(row.isSelectable ? .primary : .secondary)`.
   - `incompleteSummary` caption — colour `row.isSelectable ? .orange : .secondary` (turn the orange caption grey for non-selectable rows).
-- [ ] Edits are identical in both files; since Restore nodes are always `isSelectable == true`, RestoreView is visually unchanged.
-- [ ] Build the app: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` — succeeds.
+- [x] Edits are identical in both files; since Restore nodes are always `isSelectable == true`, RestoreView is visually unchanged.
+- [x] Build the app: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` — succeeds.
 
 ### Task 4: Verify acceptance criteria
 
