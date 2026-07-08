@@ -121,16 +121,16 @@ regression gate (must stay green with no edits).
 - Modify: `App/CCSync/CCSyncApp.swift`
 - Modify: `App/CCSync.xcodeproj/project.pbxproj`
 
-- [ ] Create `AboutView`: app name, version from `CFBundleShortVersionString`, the
+- [x] Create `AboutView`: app name, version from `CFBundleShortVersionString`, the
   copyright line from `AppLegalText.copyright` (derived from the bundled LICENSE —
   not a newly invented string), and the full MIT license text from the
   `AppLegalText` helper inside a `ScrollView`.
-- [ ] Replace the About menu item via `.commands { CommandGroup(replacing: .appInfo)
+- [x] Replace the About menu item via `.commands { CommandGroup(replacing: .appInfo)
   { Button("About CCSync") { … } } }`, opening `AboutView` (a dedicated
   `Window`/`WindowGroup` by id, or a state-driven sheet presentation). Choose the
   approach that guarantees the full text is scrollable.
-- [ ] Add the file to `project.pbxproj` (FileReference/BuildFile/Sources).
-- [ ] Verify: build succeeds; About opens and shows the correct copyright line and
+- [x] Add the file to `project.pbxproj` (FileReference/BuildFile/Sources).
+- [x] Verify: build succeeds; About opens and shows the correct copyright line and
   the full license text.
 
 ### Task 5: Verify acceptance criteria (Post-Completion — manual checks)
