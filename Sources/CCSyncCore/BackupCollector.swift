@@ -18,10 +18,22 @@ public struct BackupCollector {
         self.sourceUser = sourceUser ?? (paths.home as NSString).lastPathComponent
     }
 
-    public func collect() throws -> BackupModel {
+    /// Collect the in-memory model.
+    ///
+    /// - Parameter selection: which layers to capture. `nil` means "everything"
+    ///   and exists only for backward compatibility with existing `collect()`
+    ///   call sites — GUI and CLI always pass an explicit, non-nil `Selection`
+    ///   derived from `SelectionTree.resolvedSelection()`. When `selection.global`
+    ///   is `false` the global config is not read at all and an empty
+    ///   `GlobalConfig()` is stored; a project whose `encodedName` is not in
+    ///   `selection.projectEncodedNames` is cut before any of its sessions or
+    ///   local settings are read.
+    public func collect(selection: Selection? = nil) throws -> BackupModel {
         let claudeJSON = try readClaudeJSON()
-        let global = try collectGlobal(claudeJSON: claudeJSON)
-        let projects = try collectProjects(claudeJSON: claudeJSON)
+        let global = (selection?.global ?? true)
+            ? try collectGlobal(claudeJSON: claudeJSON)
+            : GlobalConfig()
+        let projects = try collectProjects(claudeJSON: claudeJSON, selection: selection)
         return BackupModel(sourceUser: sourceUser, global: global, projects: projects)
     }
 
@@ -70,7 +82,7 @@ public struct BackupCollector {
 
     // MARK: - Projects
 
-    private func collectProjects(claudeJSON: JSONValue) throws -> [ProjectEntry] {
+    private func collectProjects(claudeJSON: JSONValue, selection: Selection?) throws -> [ProjectEntry] {
         // Matching (entry ↔ directory, ordering, incomplete flags) is shared with
         // `BackupPlan` via `ProjectInventory`; the collector only adds the payload,
         // reading sessions solely when the inventory saw a history directory.
@@ -79,6 +91,12 @@ public struct BackupCollector {
 
         var entries: [ProjectEntry] = []
         for entry in inventory {
+            // Selectivity before reading: cut an unselected project here, before
+            // any `collectSessions`/`collectLocalSettings` call, so its paths never
+            // enter the FS journal. Filter the source, not the finished model.
+            if let selection, !selection.projectEncodedNames.contains(entry.encodedName) {
+                continue
+            }
             let sessions = entry.hasHistoryDir
                 ? try collectSessions(encoded: entry.encodedName, todoNames: todoNames)
                 : []

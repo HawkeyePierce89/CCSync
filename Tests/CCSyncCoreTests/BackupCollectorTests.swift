@@ -227,6 +227,77 @@ final class BackupCollectorTests: XCTestCase {
         XCTAssertEqual(project.sessions.count, 1)
     }
 
+    // MARK: - Selective collection
+
+    // A fixture with two projects (each a session) plus global config.
+    private func seedTwoProjects(_ fs: InMemoryFileSystem) {
+        fs.seedFile("\(home)/.claude/settings.json", #"{"theme":"dark"}"#)
+        fs.seedFile("\(home)/.claude/CLAUDE.md", "# Global rules")
+        fs.seedFile("\(home)/.claude/commands/deploy.md", "run deploy")
+        fs.seedFile("\(home)/.claude.json", #"""
+        {"mcpServers":{"git":{"command":"git-mcp"}},"projects":{"/Users/alice/git/App":{},"/Users/alice/git/Lib":{}}}
+        """#)
+        fs.seedFile("\(home)/.claude/projects/-Users-alice-git-App/\("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").jsonl", "app")
+        fs.seedFile("\(home)/git/App/.claude/settings.local.json", #"{"app":true}"#)
+        fs.seedFile("\(home)/.claude/projects/-Users-alice-git-Lib/\("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb").jsonl", "lib")
+        fs.seedFile("\(home)/git/Lib/.claude/settings.local.json", #"{"lib":true}"#)
+    }
+
+    func testUnselectedProjectPathsAreNeverRead() throws {
+        let fs = InMemoryFileSystem()
+        seedTwoProjects(fs)
+
+        // Select only "App"; "Lib" must be cut before any of its paths are read.
+        let selection = Selection(global: true, projectEncodedNames: ["-Users-alice-git-App"])
+        let model = try makeCollector(fs).collect(selection: selection)
+
+        XCTAssertEqual(model.projects.map(\.encodedName), ["-Users-alice-git-App"])
+
+        // No `.readData` for any path belonging to the unselected "Lib" project.
+        for access in fs.journal {
+            guard case .readData(let path) = access else { continue }
+            XCTAssertFalse(
+                path.contains("-Users-alice-git-Lib") || path.contains("/git/Lib/"),
+                "collector read an unselected project's path: \(path)"
+            )
+        }
+        // The selected project's session was captured (positive control).
+        XCTAssertEqual(model.projects.first?.sessions.count, 1)
+    }
+
+    func testGlobalOffSkipsGlobalReadsAndPayload() throws {
+        let fs = InMemoryFileSystem()
+        seedTwoProjects(fs)
+
+        // Global off, both projects on.
+        let selection = Selection(
+            global: false,
+            projectEncodedNames: ["-Users-alice-git-App", "-Users-alice-git-Lib"]
+        )
+        let model = try makeCollector(fs).collect(selection: selection)
+
+        // The global layer is empty — nothing was captured.
+        XCTAssertNil(model.global.settings)
+        XCTAssertNil(model.global.claudeMD)
+        XCTAssertTrue(model.global.configDirs.isEmpty)
+        XCTAssertNil(model.global.mcpServers)
+
+        // And none of the global paths were read.
+        XCTAssertFalse(fs.journal.contains(.readData("\(home)/.claude/settings.json")))
+        XCTAssertFalse(fs.journal.contains(.readData("\(home)/.claude/CLAUDE.md")))
+        for access in fs.journal {
+            XCTAssertFalse(
+                access.path.contains("/.claude/commands"),
+                "collector touched a global config dir with global off: \(access.path)"
+            )
+        }
+        // Both projects were still collected.
+        XCTAssertEqual(
+            model.projects.map(\.encodedName).sorted(),
+            ["-Users-alice-git-App", "-Users-alice-git-Lib"]
+        )
+    }
+
     // MARK: - Journal: only known paths are touched
 
     func testJournalTouchesOnlyKnownPaths() throws {

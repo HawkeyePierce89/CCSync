@@ -77,16 +77,16 @@ Selection contract: `Selection` is the seam. `nil` means "everything selected" a
 - Modify: `Tests/CCSyncCoreTests/BackupCollectorTests.swift`
 - Modify: `Tests/CCSyncCoreTests/BackupServiceTests.swift`
 
-- [ ] `BackupCollector.collect(selection: Selection? = nil)`: `nil` → full backup (backward-compat default only); otherwise filter projects by `encodedName` BEFORE reading sessions/local settings (`selection.projectEncodedNames.contains(encodedName)` inside the loop, not filtering the finished model); when `selection.global == false` do not call `collectGlobal`, store an empty `GlobalConfig()`.
-- [ ] `BackupService.backup(to:selection: Selection? = nil)` forwards the selection to the collector; the existing `backup(to:)` signature keeps working (backward-compat only).
-- [ ] Do NOT modify `RestoreService` (see Boundary guard). `report.globalRestored` semantics are unchanged.
-- [ ] Test `collect(selection:)` in `BackupCollectorTests`: an unselected project's paths are absent from the journal (`.readData`); with global off the global paths (`settings.json`, `CLAUDE.md`, config dirs) were not read, `mcpServers` did not make it into the model.
-- [ ] Round-trip of a selective archive (one project) in `BackupServiceTests`: opens via `RestorePlan`, restores via `RestoreService`; the archive lacks the unselected project's paths (checked through `RestorePlan`/reader), the selected project is restored.
-- [ ] Round-trip of an archive WITHOUT a global layer (collected with `global == false`), restored with `selection.global == true` on a non-empty fixture home, asserting only what the untouched restore side actually guarantees:
+- [x] `BackupCollector.collect(selection: Selection? = nil)`: `nil` → full backup (backward-compat default only); otherwise filter projects by `encodedName` BEFORE reading sessions/local settings (`selection.projectEncodedNames.contains(encodedName)` inside the loop, not filtering the finished model); when `selection.global == false` do not call `collectGlobal`, store an empty `GlobalConfig()`.
+- [x] `BackupService.backup(to:selection: Selection? = nil)` forwards the selection to the collector; the existing `backup(to:)` signature keeps working (backward-compat only).
+- [x] Do NOT modify `RestoreService` (see Boundary guard). `report.globalRestored` semantics are unchanged.
+- [x] Test `collect(selection:)` in `BackupCollectorTests`: an unselected project's paths are absent from the journal (`.readData`); with global off the global paths (`settings.json`, `CLAUDE.md`, config dirs) were not read, `mcpServers` did not make it into the model.
+- [x] Round-trip of a selective archive (one project) in `BackupServiceTests`: opens via `RestorePlan`, restores via `RestoreService`; the archive lacks the unselected project's paths (checked through `RestorePlan`/reader), the selected project is restored.
+- [x] Round-trip of an archive WITHOUT a global layer (collected with `global == false`), restored with `selection.global == true` on a non-empty fixture home, asserting only what the untouched restore side actually guarantees:
   - `XCTAssertFalse(fs.journal.contains(.writeData(...)))` for EVERY global path — `~/.claude/settings.json`, `~/.claude/CLAUDE.md`, files inside `globalConfigDirNames`, and no `~/.claude.json` write via the global `mcpServers` merge — i.e. an empty global layer never clobbers a live config;
   - the selected project is still restored correctly (positive control that restore ran through the global branch);
   - `report.globalRestored` remains `true` (it reflects the restore-side `selection.global`, not backup content) — assert this explicitly to document the unchanged contract. Do NOT assert it `false`.
-- [ ] `swift test` — green before Task 4.
+- [x] `swift test` — green before Task 4.
 
 ### Task 4: CLI — backup flags
 

@@ -31,12 +31,17 @@ public struct BackupService {
 
     /// Collect, pack, and write the archive. Returns the destination path.
     ///
-    /// - Parameter destination: a full archive file path, or `nil` to write
-    ///   `~/ccsync-backup.ccsync`. An existing directory path is treated as a
-    ///   folder and the default filename is written inside it.
+    /// - Parameters:
+    ///   - destination: a full archive file path, or `nil` to write
+    ///     `~/ccsync-backup.ccsync`. An existing directory path is treated as a
+    ///     folder and the default filename is written inside it.
+    ///   - selection: which layers to capture, forwarded to the collector. `nil`
+    ///     means "everything" and exists only for backward compatibility with
+    ///     existing `backup(to:)` call sites — GUI and CLI always pass an
+    ///     explicit, non-nil `Selection` from `SelectionTree.resolvedSelection()`.
     @discardableResult
-    public func backup(to destination: String? = nil) throws -> String {
-        let model = try BackupCollector(fileSystem: fs, paths: paths, sourceUser: sourceUser).collect()
+    public func backup(to destination: String? = nil, selection: Selection? = nil) throws -> String {
+        let model = try BackupCollector(fileSystem: fs, paths: paths, sourceUser: sourceUser).collect(selection: selection)
         let archive = try ArchiveWriter().makeArchive(from: model, sourceClaudeVersion: sourceClaudeVersion)
         let path = resolveDestination(destination)
         try fs.writeData(archive, to: path)
