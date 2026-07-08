@@ -120,8 +120,8 @@ Selection contract: `Selection` is the seam. `nil` means "everything selected" a
 
 ### Task 7: Update documentation
 
-- [ ] README.md, "CLI usage" section: document `ccsync backup [--global|--no-global] [--projects|--no-projects] [--project <path> ...]` with the same semantics as restore; note that no flags = full backup. Do NOT change any restore-report wording (the report contract is unchanged).
-- [ ] CLAUDE.md: add `BackupPlan`/`ProjectInventory` to the Core types list; note in "Core contract" that backup now also accepts a `Selection` (with `nil` reserved as a backward-compat "select all" default that GUI/CLI never use). No change to the restore/`globalRestored` description.
+- [x] README.md, "CLI usage" section: document `ccsync backup [--global|--no-global] [--projects|--no-projects] [--project <path> ...]` with the same semantics as restore; note that no flags = full backup. Do NOT change any restore-report wording (the report contract is unchanged).
+- [x] CLAUDE.md: add `BackupPlan`/`ProjectInventory` to the Core types list; note in "Core contract" that backup now also accepts a `Selection` (with `nil` reserved as a backward-compat "select all" default that GUI/CLI never use). No change to the restore/`globalRestored` description.
 
 ## Post-Completion (manual)
 
