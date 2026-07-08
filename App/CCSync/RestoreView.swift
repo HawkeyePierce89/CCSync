@@ -74,21 +74,15 @@ struct RestoreView: View {
             .bold()
             .disabled(model.isRunning)
 
-        ForEach(model.projectRows, id: \.encodedName) { row in
-            Toggle(isOn: model.projectBinding(row.encodedName)) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(row.path.isEmpty ? row.encodedName : row.path)
-                        .lineLimit(1).truncationMode(.middle)
-                        .foregroundStyle(row.isSelectable ? .primary : .secondary)
-                    if let summary = row.incompleteSummary {
-                        Text(summary).font(.caption2)
-                            .foregroundStyle(row.isSelectable ? .orange : .secondary)
-                    }
-                }
-            }
-            .padding(.leading, 20)
-            .disabled(model.isRunning || !model.projectsMasterOn || !row.isSelectable)
-        }
+        ProjectSelectionTreeView(
+            tree: model.projectTree,
+            isRunning: model.isRunning,
+            projectsMasterOn: model.projectsMasterOn,
+            folderState: model.folderState,
+            toggleFolder: model.toggleFolder,
+            projectBinding: model.projectBinding
+        )
+        .padding(.leading, 20)
     }
 
     private var runRow: some View {
@@ -170,6 +164,23 @@ final class RestoreViewModel: ObservableObject {
 
     var projectRows: [SelectionTree.Node] { tree?.projects ?? [] }
     var projectsMasterOn: Bool { tree?.projectsMasterSelected ?? false }
+
+    /// The grouped, collapsible view of the archive's projects, derived fresh from the
+    /// live tree. Carries no selection state — the renderer reads/writes selection via
+    /// `projectBinding`/`folderState`/`toggleFolder`.
+    var projectTree: ProjectPathTree { ProjectPathTree(nodes: tree?.projects ?? []) }
+
+    /// Tri-state of a folder from the selection of its descendant leaves. `.off` when
+    /// no archive is open yet.
+    func folderState(_ descendantEncodedNames: [String]) -> FolderCheckState {
+        tree?.folderState(descendantEncodedNames: descendantEncodedNames) ?? .off
+    }
+
+    /// Cascade a folder toggle to its descendant leaves via Core; a no-op when no
+    /// archive is open.
+    func toggleFolder(_ descendantEncodedNames: [String], _ on: Bool) {
+        tree?.setFolder(descendantEncodedNames: descendantEncodedNames, on)
+    }
 
     // MARK: - Bindings that forward to Core mutation helpers
 

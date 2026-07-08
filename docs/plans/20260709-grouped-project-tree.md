@@ -156,10 +156,10 @@ Files:
 - Create: `App/CCSync/ProjectSelectionTreeView.swift`
 - Modify: `App/CCSync/BackupView.swift`, `App/CCSync/RestoreView.swift`
 
-- [ ] Add to both view models: `var projectTree: ProjectPathTree` (computed from the live
+- [x] Add to both view models: `var projectTree: ProjectPathTree` (computed from the live
       `tree`), `func folderState(_:) -> FolderCheckState`, `func toggleFolder(_:_:)`
       (delegating to the tree; no-ops when `tree == nil`).
-- [ ] Build `ProjectSelectionTreeView`: recursive `DisclosureGroup` rows; folders
+- [x] Build `ProjectSelectionTreeView`: recursive `DisclosureGroup` rows; folders
       default-expanded via a local `@State` expansion map keyed by row id, read as
       `map[id] ?? true` so row ids that appear later (e.g. after Refresh) also start
       expanded; folder header = tri-state checkbox image + label (tap: on→off,
@@ -173,10 +173,10 @@ Files:
       `isSelectable == false` keeps them greyed and disabled — exactly today's behaviour.
       Inputs are values + closures (`folderState`, `toggleFolder`, `projectBinding`) so
       both view models reuse it without a shared protocol.
-- [ ] Replace the flat project `ForEach` in `BackupView.selection` and
+- [x] Replace the flat project `ForEach` in `BackupView.selection` and
       `RestoreView.selection` with `ProjectSelectionTreeView`, keeping the "Global config"
       and "Projects" master toggles as-is.
-- [ ] run `swift test` (Core still green) and the `xcodebuild` gate — must pass before
+- [x] run `swift test` (Core still green) and the `xcodebuild` gate — must pass before
       Task 4.
 
 ### Task 4: Verify acceptance criteria and gates
