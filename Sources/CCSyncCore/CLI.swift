@@ -87,12 +87,17 @@ public enum CCSyncCLI {
     // MARK: - backup
 
     private static func runBackup(_ args: [String], env: Environment) throws -> Int32 {
-        var parser = ArgParser(args)
-        let out = try parser.optionValue("--out")
-        let globalFlag = parser.boolFlag(on: "--global", off: "--no-global")
-        let projectsFlag = parser.boolFlag(on: "--projects", off: "--no-projects")
-        let projectPaths = try parser.repeatedOptionValues("--project")
-        try parser.finish()
+        let parser = try ArgParser(
+            args,
+            valueOptions: ["--out"],
+            repeatedOptions: ["--project"],
+            boolFlags: [.init(on: "--global", off: "--no-global"),
+                        .init(on: "--projects", off: "--no-projects")]
+        )
+        let out = parser.optionValue("--out")
+        let projectPaths = parser.repeatedOptionValues("--project")
+        let globalFlag = parser.boolFlag(on: "--global")
+        let projectsFlag = parser.boolFlag(on: "--projects")
 
         let paths = KnownPaths(home: env.home)
         let plan = try BackupPlan(fileSystem: env.fileSystem, paths: paths, sourceUser: env.sourceUser)
@@ -129,9 +134,8 @@ public enum CCSyncCLI {
     // MARK: - list
 
     private static func runList(_ args: [String], env: Environment) throws -> Int32 {
-        var parser = ArgParser(args)
+        let parser = try ArgParser(args, valueOptions: ["--archive"])
         let archivePath = try parser.requiredOptionValue("--archive")
-        try parser.finish()
 
         let data = try readArchive(archivePath, env: env)
         let plan = try RestorePlan(archive: data)
@@ -143,12 +147,17 @@ public enum CCSyncCLI {
     // MARK: - restore
 
     private static func runRestore(_ args: [String], env: Environment) throws -> Int32 {
-        var parser = ArgParser(args)
+        let parser = try ArgParser(
+            args,
+            valueOptions: ["--archive"],
+            repeatedOptions: ["--project"],
+            boolFlags: [.init(on: "--global", off: "--no-global"),
+                        .init(on: "--projects", off: "--no-projects")]
+        )
         let archivePath = try parser.requiredOptionValue("--archive")
-        let globalFlag = parser.boolFlag(on: "--global", off: "--no-global")
-        let projectsFlag = parser.boolFlag(on: "--projects", off: "--no-projects")
-        let projectPaths = try parser.repeatedOptionValues("--project")
-        try parser.finish()
+        let projectPaths = parser.repeatedOptionValues("--project")
+        let globalFlag = parser.boolFlag(on: "--global")
+        let projectsFlag = parser.boolFlag(on: "--projects")
 
         let data = try readArchive(archivePath, env: env)
         let plan = try RestorePlan(archive: data)
@@ -237,67 +246,88 @@ struct CLIError: Error {
 
 /// A tiny hand-rolled option parser (no external dependency). It supports
 /// `--opt value`, boolean on/off pairs, and repeatable `--opt value` options,
-/// and rejects any leftover/unknown tokens.
+/// and rejects any unknown token.
+///
+/// Parsing is a single left-to-right pass over the *original* token stream, so
+/// option/value adjacency is validated against the tokens the user actually
+/// typed — nothing is removed out of order. A `--`-prefixed token sitting where
+/// a value option expects its value is therefore always a usage error
+/// (`--out --no-global`, `--project --out <path> <projectPath>`, a dangling
+/// trailing `--project`), never a silent misbind that swallows a flag as a value
+/// and leaves the user's opt-out or output path misapplied. A singleton value
+/// option given twice (`--archive a --archive b`) is likewise a usage error, not
+/// a silent last-wins — only `repeatedOptions` may recur.
 private struct ArgParser {
-    private var tokens: [String]
-
-    init(_ tokens: [String]) { self.tokens = tokens }
-
-    /// Consume `name value`, returning the value, or `nil` if `name` is absent.
-    /// A trailing `name` with no value — or one immediately followed by another
-    /// `--` flag — is a usage error, never a silent swallow: otherwise
-    /// `--out --no-global` would treat `--no-global` as the output filename and
-    /// still back up global config, the exact footgun `repeatedOptionValues`
-    /// guards against.
-    mutating func optionValue(_ name: String) throws -> String? {
-        guard let index = tokens.firstIndex(of: name) else { return nil }
-        guard index + 1 < tokens.count, !tokens[index + 1].hasPrefix("--") else {
-            throw CLIError("option \(name) requires a value")
-        }
-        let value = tokens[index + 1]
-        tokens.removeSubrange(index...(index + 1))
-        return value
+    /// A boolean flag as an on/off token pair.
+    struct BoolFlag {
+        let on: String
+        let off: String
     }
 
+    private var values: [String: String] = [:]
+    private var repeated: [String: [String]] = [:]
+    /// Groups (keyed by `on`) where the `on` / `off` token was seen. `off` wins
+    /// on conflict, matching the documented `--global --no-global` semantics.
+    private var boolOn: Set<String> = []
+    private var boolOff: Set<String> = []
+
+    init(
+        _ tokens: [String],
+        valueOptions: Set<String> = [],
+        repeatedOptions: Set<String> = [],
+        boolFlags: [BoolFlag] = []
+    ) throws {
+        var boolLookup: [String: (key: String, value: Bool)] = [:]
+        for flag in boolFlags {
+            boolLookup[flag.on] = (flag.on, true)
+            boolLookup[flag.off] = (flag.on, false)
+        }
+
+        var index = 0
+        while index < tokens.count {
+            let token = tokens[index]
+            if valueOptions.contains(token) || repeatedOptions.contains(token) {
+                guard index + 1 < tokens.count, !tokens[index + 1].hasPrefix("--") else {
+                    throw CLIError("option \(token) requires a value")
+                }
+                let value = tokens[index + 1]
+                if repeatedOptions.contains(token) {
+                    repeated[token, default: []].append(value)
+                } else {
+                    guard values[token] == nil else {
+                        throw CLIError("option \(token) specified more than once")
+                    }
+                    values[token] = value
+                }
+                index += 2
+            } else if let bool = boolLookup[token] {
+                if bool.value { boolOn.insert(bool.key) } else { boolOff.insert(bool.key) }
+                index += 1
+            } else {
+                throw CLIError("unexpected argument '\(token)'")
+            }
+        }
+    }
+
+    /// The value of a value option, or `nil` if it was absent.
+    func optionValue(_ name: String) -> String? { values[name] }
+
     /// Like `optionValue`, but the option is mandatory.
-    mutating func requiredOptionValue(_ name: String) throws -> String {
-        guard let value = try optionValue(name) else {
+    func requiredOptionValue(_ name: String) throws -> String {
+        guard let value = values[name] else {
             throw CLIError("missing required option \(name)")
         }
         return value
     }
 
-    /// Consume all occurrences of `name value`, in order. A trailing `name` with
-    /// no following value — or one immediately followed by another `--` flag — is
-    /// a usage error (never silently dropped). Otherwise a dangling `--project`
-    /// would fall back to the default "all projects", and `--project --no-global`
-    /// would swallow the flag as a path and restore global config despite the
-    /// user opting out.
-    mutating func repeatedOptionValues(_ name: String) throws -> [String] {
-        var values: [String] = []
-        while let index = tokens.firstIndex(of: name) {
-            guard index + 1 < tokens.count, !tokens[index + 1].hasPrefix("--") else {
-                throw CLIError("option \(name) requires a value")
-            }
-            values.append(tokens[index + 1])
-            tokens.removeSubrange(index...(index + 1))
-        }
-        return values
-    }
+    /// All values of a repeatable option, in the order given.
+    func repeatedOptionValues(_ name: String) -> [String] { repeated[name] ?? [] }
 
-    /// A tri-state boolean: `true` if `on` present, `false` if `off` present,
-    /// `nil` if neither (caller keeps its default).
-    mutating func boolFlag(on: String, off: String) -> Bool? {
-        var result: Bool?
-        if let index = tokens.firstIndex(of: on) { tokens.remove(at: index); result = true }
-        if let index = tokens.firstIndex(of: off) { tokens.remove(at: index); result = false }
-        return result
-    }
-
-    /// Fail if any tokens are left unconsumed.
-    func finish() throws {
-        if let leftover = tokens.first {
-            throw CLIError("unexpected argument '\(leftover)'")
-        }
+    /// A tri-state boolean: `true` if `on` present, `false` if `off` present
+    /// (`off` wins if both appear), `nil` if neither (caller keeps its default).
+    func boolFlag(on: String) -> Bool? {
+        if boolOff.contains(on) { return false }
+        if boolOn.contains(on) { return true }
+        return nil
     }
 }

@@ -197,6 +197,10 @@ final class BackupViewModel: ObservableObject {
         didLoadPlan = true
         tree = nil
         errorMessage = nil
+        // Clear any previous backup result too: the body renders `result` ahead of
+        // `errorMessage`, so a stale success/failure would hide a new plan-load
+        // error. Refresh starts a clean interaction.
+        result = nil
         loadPlan()
     }
 

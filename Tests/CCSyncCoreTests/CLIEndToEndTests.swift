@@ -341,6 +341,42 @@ final class CLIEndToEndTests: XCTestCase {
         XCTAssertNil(bytes, "no archive should be written on a usage error")
     }
 
+    /// The same guard must hold when a real path trails the swallowed flag:
+    /// `--project --no-global <path>` must not let `--no-global` be consumed first
+    /// (breaking adjacency) so `--project` binds to the path and global is silently
+    /// dropped. Left-to-right parsing over the original stream prevents exactly this.
+    func testBackupProjectFlagDoesNotSwallowNextFlagWithTrailingPath() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let (result, bytes) = try makeArchive(
+            sourceFs: sourceFs, home: home,
+            flags: ["--project", "--no-global", "/Users/alice/git/App"]
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
+        XCTAssertNil(bytes, "no archive should be written on a usage error")
+    }
+
+    /// A value option between `--project` and a trailing path must not be
+    /// consumed first (shifting the path next to `--project`): `--project --out
+    /// <path> <projectPath>` must be a usage error. The parser validates
+    /// adjacency against the original token stream, left-to-right, so no
+    /// out-of-order removal can misbind `--project` to the path.
+    func testBackupProjectFlagDoesNotSwallowValueOption() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let result = run(
+            ["backup", "--project", "--out", "\(home)/backup.ccsync", "/Users/alice/git/App"],
+            fs: sourceFs, home: home
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
+        XCTAssertFalse(sourceFs.exists("\(home)/backup.ccsync"),
+                       "no archive should be written on a usage error")
+    }
+
     /// `--out` immediately followed by another flag is a usage error, not a
     /// swallow of the flag as the output filename (which would still back up
     /// global config despite the user opting out).
@@ -353,6 +389,39 @@ final class CLIEndToEndTests: XCTestCase {
         XCTAssertTrue(result.stderr.contains("--out"), result.stderr)
         XCTAssertFalse(sourceFs.allFiles.keys.contains("\(home)/--no-global"),
                        "no archive should be written under the swallowed flag name")
+    }
+
+    /// A singleton value option given twice is a usage error, not a silent
+    /// last-wins: `restore --archive a --archive b` must not quietly restore `b`.
+    func testRestoreDuplicateArchiveFlagIsUsageError() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem()
+        seedSourceHome(sourceFs, home: home)
+        let (_, bytes) = try makeArchive(sourceFs: sourceFs, home: home)
+        let safe = "/tmp/safe.ccsync"
+        let other = "/tmp/other.ccsync"
+        let targetFs = seedTargetHome(archive: bytes, at: safe)
+        try targetFs.writeData(bytes, to: other)
+
+        // Parsing rejects the duplicate before any archive is read, so both
+        // being valid archives makes the point: `other` is never restored.
+        let result = run(["restore", "--archive", safe, "--archive", other],
+                         fs: targetFs, home: home, targetVersion: "1.2.3")
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--archive"), result.stderr)
+    }
+
+    /// The backup side of the same rule for `--out`.
+    func testBackupDuplicateOutFlagIsUsageError() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let result = run(["backup", "--out", "\(home)/a.ccsync", "--out", "\(home)/b.ccsync"],
+                         fs: sourceFs, home: home)
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--out"), result.stderr)
+        XCTAssertFalse(sourceFs.allFiles.keys.contains("\(home)/b.ccsync"),
+                       "no archive should be written when --out is duplicated")
     }
 
     // MARK: - Errors & usage
@@ -419,6 +488,48 @@ final class CLIEndToEndTests: XCTestCase {
         XCTAssertEqual(result.code, 2)
         XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
         // Global config was not restored — parsing stopped before any write.
+        XCTAssertFalse(targetFs.exists("\(home)/.claude/settings.json"))
+    }
+
+    /// As above, but with a real path trailing the swallowed flag:
+    /// `--project --no-global <path>` must still be a usage error — the boolean
+    /// flag must not be removed ahead of the `--project` adjacency check.
+    func testRestoreProjectFlagDoesNotSwallowNextFlagWithTrailingPath() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem()
+        seedSourceHome(sourceFs, home: home)
+        let (_, bytes) = try makeArchive(sourceFs: sourceFs, home: home)
+
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: bytes, at: archivePath)
+
+        let result = run(
+            ["restore", "--archive", archivePath, "--project", "--no-global", "/Users/alice/git/App"],
+            fs: targetFs, home: home
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
+        XCTAssertFalse(targetFs.exists("\(home)/.claude/settings.json"))
+    }
+
+    /// The value-option variant on the restore side: `--project --archive <path>
+    /// <projectPath>` must be a usage error, not let `--archive` be consumed
+    /// first and bind `--project` to the trailing path.
+    func testRestoreProjectFlagDoesNotSwallowValueOption() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem()
+        seedSourceHome(sourceFs, home: home)
+        let (_, bytes) = try makeArchive(sourceFs: sourceFs, home: home)
+
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: bytes, at: archivePath)
+
+        let result = run(
+            ["restore", "--project", "--archive", archivePath, "/Users/alice/git/App"],
+            fs: targetFs, home: home
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
         XCTAssertFalse(targetFs.exists("\(home)/.claude/settings.json"))
     }
 }
