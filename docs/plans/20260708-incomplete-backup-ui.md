@@ -64,8 +64,8 @@ A targeted UX fix for two screens (Backup/Restore) with no redesign. Core: carry
 
 ### Task 3: Verify acceptance criteria
 
-- [ ] `swift test` — full suite green.
-- [ ] App build: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` passes.
+- [x] `swift test` — full suite green.
+- [x] App build: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` passes.
 
 ## Post-Completion (manual verification)
 
