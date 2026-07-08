@@ -341,6 +341,20 @@ final class CLIEndToEndTests: XCTestCase {
         XCTAssertNil(bytes, "no archive should be written on a usage error")
     }
 
+    /// `--out` immediately followed by another flag is a usage error, not a
+    /// swallow of the flag as the output filename (which would still back up
+    /// global config despite the user opting out).
+    func testBackupOutFlagDoesNotSwallowNextFlag() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let result = run(["backup", "--out", "--no-global"], fs: sourceFs, home: home)
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--out"), result.stderr)
+        XCTAssertFalse(sourceFs.allFiles.keys.contains("\(home)/--no-global"),
+                       "no archive should be written under the swallowed flag name")
+    }
+
     // MARK: - Errors & usage
 
     func testListMissingArchiveArgumentFails() {

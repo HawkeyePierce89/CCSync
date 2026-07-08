@@ -244,9 +244,14 @@ private struct ArgParser {
     init(_ tokens: [String]) { self.tokens = tokens }
 
     /// Consume `name value`, returning the value, or `nil` if `name` is absent.
+    /// A trailing `name` with no value — or one immediately followed by another
+    /// `--` flag — is a usage error, never a silent swallow: otherwise
+    /// `--out --no-global` would treat `--no-global` as the output filename and
+    /// still back up global config, the exact footgun `repeatedOptionValues`
+    /// guards against.
     mutating func optionValue(_ name: String) throws -> String? {
         guard let index = tokens.firstIndex(of: name) else { return nil }
-        guard index + 1 < tokens.count else {
+        guard index + 1 < tokens.count, !tokens[index + 1].hasPrefix("--") else {
             throw CLIError("option \(name) requires a value")
         }
         let value = tokens[index + 1]

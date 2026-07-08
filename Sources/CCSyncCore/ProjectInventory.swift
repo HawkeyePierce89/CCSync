@@ -66,8 +66,13 @@ public enum ProjectInventory {
         // Entries from ~/.claude.json, linked to their history directory if present.
         for path in projectSettings.keys.sorted() {
             let encoded = ProjectPathEncoding.encode(path)
+            // The name appearing in the listing is not enough: a `projects/<encoded>`
+            // that is a symlink (or a plain file) is one the collector refuses to
+            // read sessions from, so it must not be reported as a complete backup.
+            // Gate on listability, exactly as the orphan branch below does.
             let hasDir = existingDirs.contains(encoded)
-            if hasDir { matchedDirs.insert(encoded) }
+                && isListableDirectory(paths.projectDir(encoded: encoded), fileSystem: fileSystem)
+            if existingDirs.contains(encoded) { matchedDirs.insert(encoded) }
 
             entries.append(Entry(
                 path: path,

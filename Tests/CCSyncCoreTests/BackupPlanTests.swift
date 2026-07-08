@@ -75,6 +75,25 @@ final class BackupPlanTests: XCTestCase {
         XCTAssertFalse(fs.journal.contains(.listDirectory(home)))
     }
 
+    func testEntryWithSymlinkedHistoryDirIsIncomplete() throws {
+        let fs = InMemoryFileSystem()
+        let project = "/Users/alice/git/App"
+        let encoded = "-Users-alice-git-App"
+        fs.seedFile("\(home)/.claude.json", #"{"projects":{"\#(project)":{}}}"#)
+        // The `projects/<encoded>` name shows up in the listing but is a symlink —
+        // the collector refuses to read sessions through it, so the plan must not
+        // report the project as a complete backup.
+        fs.seedSymlink("\(home)/.claude/projects/\(encoded)")
+
+        let plan = try BackupPlan(fileSystem: fs, paths: paths)
+        let entry = try XCTUnwrap(plan.projects.first { $0.encodedName == encoded })
+        XCTAssertEqual(entry.path, project)
+        XCTAssertTrue(entry.incomplete)
+        XCTAssertEqual(entry.incompleteReason, "no history directory on disk")
+        // It is claimed by the entry, so it does not also appear as an orphan.
+        XCTAssertEqual(plan.projects.filter { $0.encodedName == encoded }.count, 1)
+    }
+
     func testSymlinkedClaudeJSONIsTreatedAsAbsent() throws {
         let fs = InMemoryFileSystem()
         // A symlinked ~/.claude.json must not be followed; the plan sees no

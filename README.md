@@ -89,8 +89,10 @@ Selection semantics (identical for `backup` and `restore`):
   projects master is off (`--no-projects`), `--project` is inert — the whole set is gated.
 - On `backup`, `--global`/`--no-global` selects whether the global layer is collected at
   all; an archive taken with `--no-global` simply carries no global payloads.
-- A project whose target folder is missing on this machine is **skipped** (reported with a
-  reason) — the rest still restore and the run completes successfully.
+- On `restore`, a project whose target folder is missing on this machine is **skipped**
+  (reported with a reason) — the rest still restore and the run completes successfully. On
+  `backup`, a project with no on-disk history directory is still included but flagged
+  **incomplete** ("no history directory on disk").
 - Before overwriting anything, CCSync writes a snapshot of the current state under
   `~/.claude/.ccsync-backups/<timestamp>/`. Restore is idempotent.
 
