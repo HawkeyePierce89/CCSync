@@ -111,17 +111,17 @@ they are.
 
 ### Task 3: Verify acceptance criteria
 
-- [ ] Run the full `swift test` — all green.
-- [ ] Confirm from code and tests: a non-empty global layer → `globalRestored: true`,
+- [x] Run the full `swift test` — all green.
+- [x] Confirm from code and tests: a non-empty global layer → `globalRestored: true`,
   including "mcpServers-only" and "config-dir-only" (Task 2); an empty global layer →
   `globalRestored: false` (Task 1's flipped assert in
   `testNoGlobalArchiveRestoresWithoutClobberingLiveGlobalConfig`).
-- [ ] The empty-home path is not tested separately: an empty home produces an empty
+- [x] The empty-home path is not tested separately: an empty home produces an empty
   `GlobalConfig()` and thus an archive with no global payloads — the same shape
   `--no-global` produces — so its `globalRestored: false` follows from the absence of
   payloads and is covered by that same test. Confirm this equivalence by inspection,
   not by adding a test.
-- [ ] Confirm the report format (set of fields) is unchanged.
+- [x] Confirm the report format (set of fields) is unchanged.
 
 ### Task 4: Update documentation
 
