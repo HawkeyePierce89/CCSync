@@ -71,49 +71,25 @@ public struct BackupCollector {
     // MARK: - Projects
 
     private func collectProjects(claudeJSON: JSONValue) throws -> [ProjectEntry] {
-        let projectSettings = claudeJSON["projects"]?.objectValue ?? [:]
-
-        var existingDirs: Set<String> = []
-        if isListableDirectory(paths.projectsDir) {
-            existingDirs = Set(try fs.listDirectory(paths.projectsDir))
-        }
+        // Matching (entry ↔ directory, ordering, incomplete flags) is shared with
+        // `BackupPlan` via `ProjectInventory`; the collector only adds the payload,
+        // reading sessions solely when the inventory saw a history directory.
+        let inventory = try ProjectInventory.list(claudeJSON: claudeJSON, fileSystem: fs, paths: paths)
         let todoNames = listTodos()
 
         var entries: [ProjectEntry] = []
-        var matchedDirs: Set<String> = []
-
-        // Entries from ~/.claude.json, linked to their history directory if present.
-        for path in projectSettings.keys.sorted() {
-            let encoded = ProjectPathEncoding.encode(path)
-            let hasDir = existingDirs.contains(encoded)
-            if hasDir { matchedDirs.insert(encoded) }
-
-            let sessions = hasDir
-                ? try collectSessions(encoded: encoded, todoNames: todoNames)
+        for entry in inventory {
+            let sessions = entry.hasHistoryDir
+                ? try collectSessions(encoded: entry.encodedName, todoNames: todoNames)
                 : []
-
             entries.append(ProjectEntry(
-                path: path,
-                encodedName: encoded,
-                settings: projectSettings[path],
-                localSettings: try collectLocalSettings(projectPath: path),
+                path: entry.path,
+                encodedName: entry.encodedName,
+                settings: entry.settings,
+                localSettings: try collectLocalSettings(projectPath: entry.path),
                 sessions: sessions,
-                incomplete: !hasDir,
-                incompleteReason: hasDir ? nil : "no history directory on disk"
-            ))
-        }
-
-        // History directories with no matching entry in ~/.claude.json.
-        for dir in existingDirs.sorted() where !matchedDirs.contains(dir) {
-            guard isListableDirectory(paths.projectDir(encoded: dir)) else { continue }
-            entries.append(ProjectEntry(
-                path: "",
-                encodedName: dir,
-                settings: nil,
-                localSettings: nil,
-                sessions: try collectSessions(encoded: dir, todoNames: todoNames),
-                incomplete: true,
-                incompleteReason: "no entry in ~/.claude.json"
+                incomplete: entry.incomplete,
+                incompleteReason: entry.incompleteReason
             ))
         }
 
