@@ -68,9 +68,9 @@ Orphaned history directories (`~/.claude/projects/<encoded>/` with no entry in `
 
 ### Task 4: Verify acceptance criteria
 
-- [ ] `swift test` — the whole suite green.
-- [ ] `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` — build succeeds.
-- [ ] Confirm data is untouched: directories under `~/.claude/projects/` are not deleted and not hidden from `BackupPlan` (the orphan still appears in the list, just non-selectable); archive format, restore semantics, `ProjectInventory` unchanged.
+- [x] `swift test` — the whole suite green.
+- [x] `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` — build succeeds.
+- [x] Confirm data is untouched: directories under `~/.claude/projects/` are not deleted and not hidden from `BackupPlan` (the orphan still appears in the list, just non-selectable); archive format, restore semantics, `ProjectInventory` unchanged.
 
 ### Task 5: Update documentation
 
