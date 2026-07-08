@@ -77,6 +77,31 @@ The machine-readable seam shared by CLI and GUI:
   is deleted or hidden. On the restore side behaviour is unchanged: `SelectionTree(plan:
   RestorePlan)` marks every node `isSelectable == true`, so an orphan project carried by an
   older archive stays selectable and restorable.
+- **Grouped project tree (presentation only):** `ProjectPathTree(nodes:)`
+  (`ProjectPathTree.swift`) derives a collapsible, path-grouped view of the flat
+  `SelectionTree.Node` list for both GUI screens. It sits *between* the `SelectionTree` and
+  the SwiftUI renderer and deliberately carries **no selection state** — `Leaf` holds only
+  display fields (`path`, `encodedName`, `incomplete`, `incompleteReason`,
+  `incompleteSummary` — same wording as `SelectionTree.Node` — and `isSelectable`), never
+  `isSelected`, so a renderer cannot bind a checkbox to stale data. All selection
+  reads/writes still go through the live `SelectionTree` via `projectBinding` (per leaf) and
+  the tri-state folder helpers `folderState(descendantEncodedNames:) -> FolderCheckState`
+  (`.on`/`.off`/`.mixed`) and `setFolder(descendantEncodedNames:_:)`, which routes every
+  write through `setProject` (non-selectable leaves are never flipped, master-off still
+  resolves empty). Documented derivation rules, all covered by tests: **grouping** — split
+  each non-orphan `path` on `/` (drop leading empty); final segment is the project leaf,
+  preceding segments are folders in a trie. **Compaction** — a folder that is not itself a
+  project and has exactly one child folder merges its label with that child (joined by `/`),
+  repeated; stops at a leaf child, a multi-child folder, or a folder that is a project; root
+  folder labels are prefixed with `/` to read as absolute. **Project-is-also-a-prefix** — a
+  trie node that is both a project and has descendants emits two sibling rows (the project
+  leaf, then a same-named folder of its descendants), leaf sorting first. **Child
+  ordering** — case-insensitive by label with a leaf-before-same-named-folder tiebreak.
+  **Orphans** (`path.isEmpty`) go to `orphans`, rendered after the tree, never in the
+  hierarchy. **Ignore-unknown-names** — `folderState` skips encoded names not present in
+  the tree (an all-unknown list derives `.off`) and `setFolder`/`setProject` no-op on them,
+  since the derived name list may in theory lag the live tree. The archive format, CLI, and
+  `resolvedSelection()` are untouched.
 
 ## Decisions locked before implementation
 

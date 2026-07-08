@@ -192,9 +192,9 @@ Files:
 
 ### Task 5: Update documentation
 
-- [ ] CLAUDE.md: extend the core-contract section with `ProjectPathTree` (derivation-only,
+- [x] CLAUDE.md: extend the core-contract section with `ProjectPathTree` (derivation-only,
       display fields without selection state, where it sits) and the
       `folderState`/`setFolder` helpers; note the documented
       grouping/compaction/prefix/ordering rules and the ignore-unknown-names rule.
-- [ ] README.md: brief note on the grouped project tree and the "History only — no project
+- [x] README.md: brief note on the grouped project tree and the "History only — no project
       entry" section (user-visible wording only).
