@@ -32,21 +32,21 @@ A targeted UX fix for two screens (Backup/Restore) with no redesign. Core: carry
 - Modify: `Sources/CCSyncCore/SelectionTree.swift`
 - Modify: `Tests/CCSyncCoreTests/SelectionTreeTests.swift`
 
-- [ ] Add field `public var incompleteReason: String?` to `SelectionTree.Node` (raw reason, for mapping).
-- [ ] Update the memberwise `Node.init` — parameter `incompleteReason: String? = nil` (default keeps compatibility for any future direct calls).
-- [ ] Add computed `public var incompleteSummary: String?` with an explicit contract — the incomplete signal must never be silently lost:
+- [x] Add field `public var incompleteReason: String?` to `SelectionTree.Node` (raw reason, for mapping).
+- [x] Update the memberwise `Node.init` — parameter `incompleteReason: String? = nil` (default keeps compatibility for any future direct calls).
+- [x] Add computed `public var incompleteSummary: String?` with an explicit contract — the incomplete signal must never be silently lost:
   - if `!incomplete` → `nil`;
   - `incomplete` && reason == `"no history directory on disk"` → `"settings only — no session history"`;
   - `incomplete` && reason == `"no entry in ~/.claude.json"` → `"history only — no project settings"`;
   - `incomplete` && reason is a non-empty unknown string → return the reason as-is;
   - `incomplete` && `incompleteReason == nil` (or empty) → generic fallback `"incomplete backup"` (never `nil` while `incomplete == true`).
-- [ ] In `init(plan: RestorePlan)` and `init(plan: BackupPlan)` pass `incompleteReason: $0.incompleteReason` when constructing `Node`.
-- [ ] Fixture prerequisite: ensure both known reasons flow through the real plan builders, not just direct Node construction. Currently `samplePlan()` (RestorePlan) uses `"directory missing"` and `sampleBackupPlan()` (BackupPlan) uses `"no history directory on disk"` — so `"no entry in ~/.claude.json"` is never carried by a plan. Adjust the fixtures so that across the two plans both real reason strings appear (e.g. give the RestorePlan Ghost node `"no entry in ~/.claude.json"` — the orphaned-directory case — while the BackupPlan keeps `"no history directory on disk"` — the entry-without-directory case). Keep the existing `.incomplete == true` assertions intact (mechanical value change only).
-- [ ] SelectionTreeTests: reason is carried through both constructors (RestorePlan and BackupPlan) — assert `incompleteReason` on each plan's incomplete (Ghost) node equals the fixture reason, confirming both real reason strings survive the plan→tree path.
-- [ ] SelectionTreeTests: `incompleteSummary` — assert both known mappings resolve to their human wording via the plan builders (`"no history directory on disk"` → `"settings only — no session history"`, `"no entry in ~/.claude.json"` → `"history only — no project settings"`), plus fallback to an unknown reason (returned as-is) and `nil` for a complete project.
-- [ ] SelectionTreeTests: dedicated fallback assertion — a node with `incomplete == true` and `incompleteReason == nil` yields the generic `"incomplete backup"` (never `nil`), so the orange label never silently disappears.
-- [ ] Review existing SelectionTreeTests assertions; update mechanically if the fixture reason change affects any (meaning unchanged).
-- [ ] `swift test` — green before Task 2.
+- [x] In `init(plan: RestorePlan)` and `init(plan: BackupPlan)` pass `incompleteReason: $0.incompleteReason` when constructing `Node`.
+- [x] Fixture prerequisite: ensure both known reasons flow through the real plan builders, not just direct Node construction. Currently `samplePlan()` (RestorePlan) uses `"directory missing"` and `sampleBackupPlan()` (BackupPlan) uses `"no history directory on disk"` — so `"no entry in ~/.claude.json"` is never carried by a plan. Adjust the fixtures so that across the two plans both real reason strings appear (e.g. give the RestorePlan Ghost node `"no entry in ~/.claude.json"` — the orphaned-directory case — while the BackupPlan keeps `"no history directory on disk"` — the entry-without-directory case). Keep the existing `.incomplete == true` assertions intact (mechanical value change only).
+- [x] SelectionTreeTests: reason is carried through both constructors (RestorePlan and BackupPlan) — assert `incompleteReason` on each plan's incomplete (Ghost) node equals the fixture reason, confirming both real reason strings survive the plan→tree path.
+- [x] SelectionTreeTests: `incompleteSummary` — assert both known mappings resolve to their human wording via the plan builders (`"no history directory on disk"` → `"settings only — no session history"`, `"no entry in ~/.claude.json"` → `"history only — no project settings"`), plus fallback to an unknown reason (returned as-is) and `nil` for a complete project.
+- [x] SelectionTreeTests: dedicated fallback assertion — a node with `incomplete == true` and `incompleteReason == nil` yields the generic `"incomplete backup"` (never `nil`), so the orange label never silently disappears.
+- [x] Review existing SelectionTreeTests assertions; update mechanically if the fixture reason change affects any (meaning unchanged).
+- [x] `swift test` — green before Task 2.
 
 ### Task 2: GUI — incompleteSummary label + list scroll + bounded restore report
 
