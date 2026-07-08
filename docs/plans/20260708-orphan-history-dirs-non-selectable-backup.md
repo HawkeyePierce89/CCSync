@@ -49,9 +49,9 @@ Orphaned history directories (`~/.claude/projects/<encoded>/` with no entry in `
 **Files:**
 - Modify: `Tests/CCSyncCoreTests/CLIEndToEndTests.swift`
 
-- [ ] Add a test: seed a local home with one normal project (entry in `~/.claude.json` + history) and one orphan history directory (no entry). Run a full `backup` with no flags, then `RestorePlan` over the result → the project list contains the normal project and does NOT contain the orphan name.
-- [ ] Confirm the existing round-trip of an old archive containing an orphan project through `restore` stays green (do not change — just verify); add an explicit reference/assert if helpful, but without changing restore semantics.
-- [ ] `swift test` — green before Task 3.
+- [x] Add a test: seed a local home with one normal project (entry in `~/.claude.json` + history) and one orphan history directory (no entry). Run a full `backup` with no flags, then `RestorePlan` over the result → the project list contains the normal project and does NOT contain the orphan name.
+- [x] Confirm the existing round-trip of an old archive containing an orphan project through `restore` stays green (do not change — just verify); add an explicit reference/assert if helpful, but without changing restore semantics.
+- [x] `swift test` — green before Task 3.
 
 ### Task 3: GUI — greyed-out, disabled render of non-selectable rows
 
