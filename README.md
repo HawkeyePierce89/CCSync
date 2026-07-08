@@ -122,6 +122,16 @@ Developer ID, and notarize the app for distribution between machines. App Sandbo
 (the tool reads/writes known home paths and user-picked project folders); Hardened Runtime
 is on for notarization.
 
+## Disclaimer
+
+Use CCSync at your own risk. During restore it overwrites files under your home
+directory (`~/.claude`, `~/.claude.json`, and project `.claude/settings.local.json`
+files). The software is provided **"as is"**, without warranty of any kind, and the
+author accepts **no liability** for data loss or any other damages arising from its
+use — see [LICENSE](LICENSE) (MIT). Restore does write a snapshot of the current state
+to `~/.claude/.ccsync-backups/<timestamp>/` before overwriting anything, but keep your
+own backups of anything you cannot afford to lose.
+
 ## Development
 
 The core is a testable Swift library. All logic is exercised without touching the real
