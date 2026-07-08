@@ -113,10 +113,10 @@ Selection contract: `Selection` is the seam. `nil` means "everything selected" a
 
 ### Task 6: Verify acceptance criteria
 
-- [ ] `swift test` — full run green.
-- [ ] `swift build` — the package builds.
-- [ ] Confirm coverage of every spec test point: BackupPlan journal + order, collect journal (unselected project + global off), SelectionTree default, CLI flags (incl. conflicts and `--no-projects --project`), selective round-trip, no-global round-trip (no global writes + project restored + `globalRestored` stays `true`).
-- [ ] Confirm the restore side was not modified (no diff in `RestoreService.swift` / `RestoreServiceTests.swift`).
+- [x] `swift test` — full run green.
+- [x] `swift build` — the package builds.
+- [x] Confirm coverage of every spec test point: BackupPlan journal + order, collect journal (unselected project + global off), SelectionTree default, CLI flags (incl. conflicts and `--no-projects --project`), selective round-trip, no-global round-trip (no global writes + project restored + `globalRestored` stays `true`).
+- [x] Confirm the restore side was not modified (no diff in `RestoreService.swift` / `RestoreServiceTests.swift`).
 
 ### Task 7: Update documentation
 
