@@ -43,7 +43,7 @@ enum AppLegalText {
     /// "Copyright"; returns an empty string if no such line is present.
     static var copyright: String {
         for line in licenseText.split(separator: "\n", omittingEmptySubsequences: false) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.hasPrefix("Copyright") {
                 return trimmed
             }
