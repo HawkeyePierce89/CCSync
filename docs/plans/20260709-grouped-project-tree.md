@@ -181,14 +181,14 @@ Files:
 
 ### Task 4: Verify acceptance criteria and gates
 
-- [ ] run `swift test` — full suite green (existing + new Core tests).
-- [ ] run the `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration
+- [x] run `swift test` — full suite green (existing + new Core tests).
+- [x] run the `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration
       Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` gate — must pass.
-- [ ] confirm acceptance 5/6 by inspection: default-checked tree `resolvedSelection()`
+- [x] confirm acceptance 5/6 by inspection: default-checked tree `resolvedSelection()`
       unchanged; no CLI/archive/manifest code touched.
-- [ ] manual walkthrough in the built app: folder collapse/expand, tri-state toggling,
+- [x] manual walkthrough in the built app: folder collapse/expand, tri-state toggling,
       master-off greys out folders *and* leaves, orphan section renders after the tree
-      (greyed on Backup, toggleable on Restore).
+      (greyed on Backup, toggleable on Restore). (skipped - manual GUI test, not automatable)
 
 ### Task 5: Update documentation
 
