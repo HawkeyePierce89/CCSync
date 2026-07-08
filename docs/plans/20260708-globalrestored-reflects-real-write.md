@@ -65,28 +65,28 @@ they are.
 - Modify: `Sources/CCSyncCore/RestoreService.swift`
 - Modify: `Tests/CCSyncCoreTests/BackupServiceTests.swift`
 
-- [ ] Change `restoreGlobal`'s signature to `throws -> Bool`; introduce a local flag
+- [x] Change `restoreGlobal`'s signature to `throws -> Bool`; introduce a local flag
   `applied = false`.
-- [ ] Set `applied = true` after writing settings.json, after writing CLAUDE.md, and
+- [x] Set `applied = true` after writing settings.json, after writing CLAUDE.md, and
   inside the global/dirs loop after each successful `writeWithSnapshot`.
-- [ ] mcpServers branch: set `applied = true` ONLY inside the existing
+- [x] mcpServers branch: set `applied = true` ONLY inside the existing
   `if let mcpData ..., let mcp = try? JSONValue(data: mcpData)` block, on the same
   successful-parse path as `dirty = true` — right next to it. A corrupt/unparseable
   payload must not set `applied` (nothing was merged); this truthful skip is
   intentional, not an oversight.
-- [ ] Return `applied` at the end of the function.
-- [ ] In `restore(archive:selection:)` replace the unconditional
+- [x] Return `applied` at the end of the function.
+- [x] In `restore(archive:selection:)` replace the unconditional
   `report.globalRestored = true` with an assignment of the `restoreGlobal(...)` call
   result. When `selection.global == false` behaviour is unchanged — the field stays
   `false` (RestoreReport default).
-- [ ] Confirm the write order, snapshots, and the claudeJSON/dirty/captured handling
+- [x] Confirm the write order, snapshots, and the claudeJSON/dirty/captured handling
   are unchanged — only the bool computation and return are edited.
-- [ ] In `testNoGlobalArchiveRestoresWithoutClobberingLiveGlobalConfig` replace
+- [x] In `testNoGlobalArchiveRestoresWithoutClobberingLiveGlobalConfig` replace
   `XCTAssertTrue(report.globalRestored)` with `XCTAssertFalse(report.globalRestored)`;
   remove the "the unchanged contract" comment and replace it with a short one
   explaining that an empty global layer writes nothing, so `globalRestored == false`
   even when `selection.global == true`.
-- [ ] `swift test` — green (the empty-layer archive now truthfully reports false;
+- [x] `swift test` — green (the empty-layer archive now truthfully reports false;
   existing "non-empty layer → true" tests stay green).
 
 ### Task 2: Tests — non-empty layer yields true in boundary cases
