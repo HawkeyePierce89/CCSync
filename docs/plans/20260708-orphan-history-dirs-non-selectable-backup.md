@@ -74,5 +74,5 @@ Orphaned history directories (`~/.claude/projects/<encoded>/` with no entry in `
 
 ### Task 5: Update documentation
 
-- [ ] `README.md` ("Selection semantics" section): extend the incomplete bullet to state that orphaned history directories (`projects/<encoded>/` with no entry in `~/.claude.json`) are listed in the GUI as non-selectable (greyed out, toggle off) and are not included in the archive.
-- [ ] `CLAUDE.md` (the "Backup selection" contract): record that the default backup tree does not include orphan nodes (`path.isEmpty` → `isSelectable == false`, `isSelected == false`); `setProject` is a no-op for a non-selectable node; on the restore side behaviour is unchanged (orphan from an archive is selectable).
+- [x] `README.md` ("Selection semantics" section): extend the incomplete bullet to state that orphaned history directories (`projects/<encoded>/` with no entry in `~/.claude.json`) are listed in the GUI as non-selectable (greyed out, toggle off) and are not included in the archive.
+- [x] `CLAUDE.md` (the "Backup selection" contract): record that the default backup tree does not include orphan nodes (`path.isEmpty` → `isSelectable == false`, `isSelected == false`); `setProject` is a no-op for a non-selectable node; on the restore side behaviour is unchanged (orphan from an archive is selectable).
