@@ -118,17 +118,17 @@ Files:
 - Create: `Sources/CCSyncCore/ProjectPathTree.swift`
 - Create: `Tests/CCSyncCoreTests/ProjectPathTreeTests.swift`
 
-- [ ] Write failing tests: acceptance-1 shape (`/Users/a/git/x`, `/git/y`, `/work/z` →
+- [x] Write failing tests: acceptance-1 shape (`/Users/a/git/x`, `/git/y`, `/work/z` →
       single `/Users/a` root, `git` + `work` folders, three leaves); single-child
       compaction of a lone project chain; project-is-also-a-prefix (leaf + same-named
       sibling folder, leaf first); child ordering; orphan placement (`path.isEmpty` lands
       in `orphans`, not `roots`); `descendantEncodedNames` completeness per folder;
       Leaf carries the display fields verbatim from the source `Node` (including
       `isSelectable` and the `incompleteSummary` wording) and has no selection state.
-- [ ] Implement `ProjectPathTree(nodes:)`: partition orphans, build the segment trie,
+- [x] Implement `ProjectPathTree(nodes:)`: partition orphans, build the segment trie,
       split project-and-prefix nodes, compact single-child folder chains, sort children,
       populate `descendantEncodedNames`, map nodes to display-only `Leaf` values.
-- [ ] run `swift test` — must pass before Task 2.
+- [x] run `swift test` — must pass before Task 2.
 
 ### Task 2: Core — tri-state derivation + folder cascade helpers
 
