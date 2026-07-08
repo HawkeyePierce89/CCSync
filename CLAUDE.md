@@ -69,6 +69,14 @@ The machine-readable seam shared by CLI and GUI:
   or CLAUDE.md or at least one config-dir file written, or the mcpServers merge performed.
   An archive with an empty global layer (from `--no-global` or an empty home) writes
   nothing, so `globalRestored` stays `false` even when `selection.global == true`.
+  Orphaned history directories (a `projects/<encoded>/` node with `path.isEmpty`, i.e. no
+  entry in `~/.claude.json`) are marked non-selectable in the default backup tree
+  (`isSelectable == false`, `isSelected == false`), so they are excluded from a default
+  backup in both GUI and CLI. `SelectionTree.setProject` is a no-op for a non-selectable
+  node (it cannot be turned on). The node still appears in `BackupPlan`'s listing — nothing
+  is deleted or hidden. On the restore side behaviour is unchanged: `SelectionTree(plan:
+  RestorePlan)` marks every node `isSelectable == true`, so an orphan project carried by an
+  older archive stays selectable and restorable.
 
 ## Decisions locked before implementation
 

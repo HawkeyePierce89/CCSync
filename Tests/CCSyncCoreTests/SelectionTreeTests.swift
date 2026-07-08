@@ -73,6 +73,73 @@ final class SelectionTreeTests: XCTestCase {
         )
     }
 
+    // MARK: - Orphaned history directories are non-selectable on the backup side
+
+    private func orphanBackupPlan() -> BackupPlan {
+        BackupPlan(
+            sourceUser: "alice",
+            projects: [
+                ManifestProject(path: "/Users/alice/git/App", encodedName: "-Users-alice-git-App"),
+                ManifestProject(
+                    path: "",
+                    encodedName: "-Users-alice-git-Orphan",
+                    incomplete: true,
+                    incompleteReason: "no entry in ~/.claude.json"
+                ),
+            ]
+        )
+    }
+
+    func testBackupPlanOrphanNodeIsNonSelectableAndOff() {
+        let tree = SelectionTree(plan: orphanBackupPlan())
+
+        let normal = tree.projects.first { $0.encodedName.hasSuffix("App") }
+        XCTAssertEqual(normal?.isSelectable, true)
+        XCTAssertEqual(normal?.isSelected, true)
+
+        let orphan = tree.projects.first { $0.encodedName.hasSuffix("Orphan") }
+        XCTAssertEqual(orphan?.isSelectable, false)
+        XCTAssertEqual(orphan?.isSelected, false)
+    }
+
+    func testSetProjectIsNoOpForOrphanNode() {
+        var tree = SelectionTree(plan: orphanBackupPlan())
+        tree.setProject(encodedName: "-Users-alice-git-Orphan", true)
+
+        let orphan = tree.projects.first { $0.encodedName.hasSuffix("Orphan") }
+        // The node stays off — a non-selectable node cannot be turned on.
+        XCTAssertEqual(orphan?.isSelected, false)
+    }
+
+    func testResolvedSelectionExcludesOrphanFromDefaultBackupTree() {
+        let selection = SelectionTree(plan: orphanBackupPlan()).resolvedSelection()
+        XCTAssertEqual(selection.projectEncodedNames, ["-Users-alice-git-App"])
+        XCTAssertFalse(selection.projectEncodedNames.contains("-Users-alice-git-Orphan"))
+    }
+
+    func testRestorePlanOrphanProjectStaysSelectable() {
+        // Regression: an orphan project from an archive is selectable and restorable.
+        let plan = RestorePlan(
+            sourceUser: "alice",
+            sourceClaudeVersion: "1.2.3",
+            projects: [
+                ManifestProject(path: "/Users/alice/git/App", encodedName: "-Users-alice-git-App"),
+                ManifestProject(
+                    path: "",
+                    encodedName: "-Users-alice-git-Orphan",
+                    incomplete: true,
+                    incompleteReason: "no entry in ~/.claude.json"
+                ),
+            ]
+        )
+        let tree = SelectionTree(plan: plan)
+
+        let orphan = tree.projects.first { $0.encodedName.hasSuffix("Orphan") }
+        XCTAssertEqual(orphan?.isSelectable, true)
+        XCTAssertEqual(orphan?.isSelected, true)
+        XCTAssertTrue(tree.resolvedSelection().projectEncodedNames.contains("-Users-alice-git-Orphan"))
+    }
+
     // MARK: - Incomplete reason carried through and mapped to human wording
 
     func testIncompleteReasonCarriedThroughRestorePlanBuilder() {

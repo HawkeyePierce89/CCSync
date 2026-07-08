@@ -93,6 +93,12 @@ Selection semantics (identical for `backup` and `restore`):
   (reported with a reason) — the rest still restore and the run completes successfully. On
   `backup`, a project with no on-disk history directory is still included but flagged
   **incomplete** ("no history directory on disk").
+- An **orphaned history directory** (`projects/<encoded>/` with no matching entry in
+  `~/.claude.json`) is listed in the GUI as **non-selectable** — greyed out with its toggle
+  off — and is **not included** in the archive on a default backup. It still appears in the
+  backup listing (nothing is deleted or hidden), just cannot be selected. This applies to
+  `backup` only; on `restore`, orphan projects carried by an older archive remain selectable
+  and restorable.
 - Before overwriting anything, CCSync writes a snapshot of the current state under
   `~/.claude/.ccsync-backups/<timestamp>/`. Restore is idempotent.
 

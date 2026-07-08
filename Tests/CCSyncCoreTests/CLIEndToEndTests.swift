@@ -424,6 +424,77 @@ final class CLIEndToEndTests: XCTestCase {
                        "no archive should be written when --out is duplicated")
     }
 
+    // MARK: - Orphan history directories (Task 2)
+
+    /// Encoded name of a history directory with no matching `~/.claude.json` entry.
+    private let orphanEncoded = "-Users-alice-git-Orphan"
+
+    /// A full backup with no flags must exclude an orphaned history directory — a
+    /// `projects/<encoded>/` with no entry in `~/.claude.json`. Its node is
+    /// non-selectable in the default backup tree, so the archive omits it while
+    /// still carrying the two normal projects.
+    func testBackupNoFlagsExcludesOrphanHistoryDirectory() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+        // An orphan history directory: sessions on disk, but no ~/.claude.json entry.
+        sourceFs.seedFile(
+            "\(home)/.claude/projects/\(orphanEncoded)/33333333-3333-3333-3333-333333333333.jsonl",
+            "orphan-session"
+        )
+
+        let (result, bytes) = try makeArchive(sourceFs: sourceFs, home: home, flags: [])
+        XCTAssertEqual(result.code, 0, result.stderr)
+
+        let plan = try RestorePlan(archive: XCTUnwrap(bytes))
+        // The two normal projects survive…
+        XCTAssertEqual(Set(plan.projects.map(\.path)), ["/Users/alice/git/App", "/Users/alice/git/Web"])
+        // …and the orphan is gone, whether looked up by path or by encoded name.
+        XCTAssertFalse(
+            plan.projects.map(\.encodedName).contains(orphanEncoded),
+            "an orphan history directory must not appear in a no-flags backup"
+        )
+    }
+
+    /// Regression: an *old* archive that already contains an orphan project — made
+    /// before orphans became non-selectable — still restores unchanged. Restore
+    /// semantics are driven by the manifest, not by the backup selection tree, so
+    /// the orphan sessions land on the target verbatim.
+    func testRestoreOfOldArchiveWithOrphanStillWorks() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+        sourceFs.seedFile(
+            "\(home)/.claude/projects/\(orphanEncoded)/33333333-3333-3333-3333-333333333333.jsonl",
+            "orphan-session"
+        )
+
+        // Simulate a pre-change backup: explicitly include the orphan directory in
+        // the Selection (today's default tree would drop it).
+        let paths = KnownPaths(home: home)
+        let service = BackupService(fileSystem: sourceFs, paths: paths, sourceClaudeVersion: "1.2.3")
+        let dest = try service.backup(
+            to: "\(home)/old.ccsync",
+            selection: Selection(
+                global: true,
+                projectEncodedNames: [appEncoded, webEncoded, orphanEncoded]
+            )
+        )
+        let bytes = try sourceFs.readData(dest)
+
+        // The old archive genuinely carries the orphan.
+        let plan = try RestorePlan(archive: bytes)
+        XCTAssertTrue(plan.projects.map(\.encodedName).contains(orphanEncoded))
+
+        // Restoring it onto a fresh target writes the orphan sessions unchanged.
+        let archivePath = "/tmp/old.ccsync"
+        let targetFs = seedTargetHome(archive: bytes, at: archivePath)
+        let restored = run(["restore", "--archive", archivePath], fs: targetFs, home: home, targetVersion: "1.2.3")
+        XCTAssertEqual(restored.code, 0, restored.stderr)
+        XCTAssertEqual(
+            try targetFs.readData("\(home)/.claude/projects/\(orphanEncoded)/33333333-3333-3333-3333-333333333333.jsonl"),
+            Data("orphan-session".utf8)
+        )
+    }
+
     // MARK: - Errors & usage
 
     func testListMissingArchiveArgumentFails() {

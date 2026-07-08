@@ -41,19 +41,27 @@ public struct SelectionTree: Equatable, Sendable {
         public var incompleteReason: String?
         /// Whether this project is checked for restore.
         public var isSelected: Bool
+        /// Whether this node may be toggled by the user at all. `false` for an
+        /// orphaned history directory on the backup side (`path.isEmpty` — no entry
+        /// in `~/.claude.json`): such a node renders greyed out, stays off, and is
+        /// excluded from the resolved selection. Always `true` on the restore side,
+        /// so orphan projects from an archive remain selectable and restorable.
+        public var isSelectable: Bool
 
         public init(
             path: String,
             encodedName: String,
             incomplete: Bool,
             isSelected: Bool,
-            incompleteReason: String? = nil
+            incompleteReason: String? = nil,
+            isSelectable: Bool = true
         ) {
             self.path = path
             self.encodedName = encodedName
             self.incomplete = incomplete
             self.isSelected = isSelected
             self.incompleteReason = incompleteReason
+            self.isSelectable = isSelectable
         }
 
         /// Human-readable one-line summary of the incompleteness, shared by the
@@ -106,13 +114,24 @@ public struct SelectionTree: Equatable, Sendable {
 
     /// Default-selection builder for the backup side: global on, the Projects
     /// master on, and every project from the local inventory checked. Mirrors the
-    /// `RestorePlan` builder so GUI and CLI present an identical two-level tree.
+    /// `RestorePlan` builder so GUI and CLI present an identical two-level tree,
+    /// except that an orphaned history directory (`path.isEmpty` — no entry in
+    /// `~/.claude.json`) is non-selectable and left off by default, so the default
+    /// backup tree excludes it from the archive.
     public init(plan: BackupPlan) {
         self.init(
             globalSelected: true,
             projectsMasterSelected: true,
             projects: plan.projects.map {
-                Node(path: $0.path, encodedName: $0.encodedName, incomplete: $0.incomplete, isSelected: true, incompleteReason: $0.incompleteReason)
+                let isOrphan = $0.path.isEmpty
+                return Node(
+                    path: $0.path,
+                    encodedName: $0.encodedName,
+                    incomplete: $0.incomplete,
+                    isSelected: !isOrphan,
+                    incompleteReason: $0.incompleteReason,
+                    isSelectable: !isOrphan
+                )
             }
         )
     }
@@ -141,9 +160,11 @@ public struct SelectionTree: Equatable, Sendable {
         projectsMasterSelected = on
     }
 
-    /// Toggle a single project by its encoded name; no-op if unknown.
+    /// Toggle a single project by its encoded name; no-op if unknown or if the
+    /// node is non-selectable (an orphaned history directory on the backup side).
     public mutating func setProject(encodedName: String, _ on: Bool) {
         guard let index = projects.firstIndex(where: { $0.encodedName == encodedName }) else { return }
+        guard projects[index].isSelectable else { return }
         projects[index].isSelected = on
     }
 }
