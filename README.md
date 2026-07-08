@@ -94,6 +94,15 @@ Selection semantics:
 and Restore — that render the Core selection tree and call the same contract the CLI uses.
 It carries no business logic of its own.
 
+Build it from the command line (or open the project in Xcode 15+ and press Run):
+
+```sh
+xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build
+```
+
+The built app lands in `dist/CCSync.app` (alongside some intermediate build
+artifacts; the whole `dist/` directory is git-ignored).
+
 See **[App/README-build.md](App/README-build.md)** for how to build, sign with a
 Developer ID, and notarize the app for distribution between machines. App Sandbox is off
 (the tool reads/writes known home paths and user-picked project folders); Hardened Runtime
