@@ -137,7 +137,7 @@ Files:
 - Modify: `Sources/CCSyncCore/SelectionTree.swift`
 - Modify: `Tests/CCSyncCoreTests/SelectionTreeTests.swift`
 
-- [ ] Write failing tests: all-selected → `.on`, none → `.off`, partial → `.mixed`;
+- [x] Write failing tests: all-selected → `.on`, none → `.off`, partial → `.mixed`;
       `setFolder(..., true/false)` flips exactly the selectable descendants and
       `resolvedSelection()` reflects it; `setFolder` never flips a non-selectable leaf;
       master-off inertness (folder set on, master off →
@@ -145,9 +145,9 @@ Files:
       `folderState` ignores them when mixed with known ones and derives `.off` for an
       all-unknown list; `setFolder` with unknown names is a no-op for them and mutates
       nothing else.
-- [ ] Implement `FolderCheckState` and the `folderState`/`setFolder` extension helpers
+- [x] Implement `FolderCheckState` and the `folderState`/`setFolder` extension helpers
       (routing writes through `setProject`; unknown names skipped).
-- [ ] run `swift test` — must pass before Task 3.
+- [x] run `swift test` — must pass before Task 3.
 
 ### Task 3: App — shared grouped renderer wired into both screens
 

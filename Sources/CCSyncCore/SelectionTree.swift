@@ -168,3 +168,41 @@ public struct SelectionTree: Equatable, Sendable {
         projects[index].isSelected = on
     }
 }
+
+/// The tri-state of a folder checkbox in the grouped project tree, derived from the
+/// selection state of the leaves in its subtree.
+public enum FolderCheckState: Equatable, Sendable {
+    /// Every (known) descendant leaf is selected.
+    case on
+    /// No (known) descendant leaf is selected.
+    case off
+    /// Some — but not all — descendant leaves are selected.
+    case mixed
+}
+
+extension SelectionTree {
+    /// Derive a folder's tri-state from the selection of its descendant leaves.
+    ///
+    /// Encoded names not present in the tree are skipped, not treated as "off" — the
+    /// derived tree may in theory lag the live `SelectionTree`. A list that names only
+    /// unknown leaves therefore derives `.off` (no known descendant is selected).
+    public func folderState(descendantEncodedNames: [String]) -> FolderCheckState {
+        let known = descendantEncodedNames.compactMap { name in
+            projects.first { $0.encodedName == name }
+        }
+        guard !known.isEmpty else { return .off }
+        let selectedCount = known.filter(\.isSelected).count
+        if selectedCount == 0 { return .off }
+        if selectedCount == known.count { return .on }
+        return .mixed
+    }
+
+    /// Cascade a folder toggle to every descendant leaf, routing each write through
+    /// `setProject` so non-selectable leaves are never flipped, unknown names no-op,
+    /// and a master-off tree still resolves to an empty project set.
+    public mutating func setFolder(descendantEncodedNames: [String], _ on: Bool) {
+        for name in descendantEncodedNames {
+            setProject(encodedName: name, on)
+        }
+    }
+}
