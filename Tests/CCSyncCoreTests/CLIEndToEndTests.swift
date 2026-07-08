@@ -163,6 +163,267 @@ final class CLIEndToEndTests: XCTestCase {
         XCTAssertFalse(targetFs.exists("\(home)/.claude/projects/\(webEncoded)/22222222-2222-2222-2222-222222222222.jsonl"))
     }
 
+    // MARK: - Backup selection flags
+
+    /// Back up `sourceFs` with the given extra flags and return the archive bytes.
+    private func makeArchive(
+        sourceFs: InMemoryFileSystem,
+        home: String,
+        flags: [String]
+    ) throws -> (result: RunResult, bytes: Data?) {
+        let dest = "\(home)/backup.ccsync"
+        let result = run(["backup", "--out", dest] + flags, fs: sourceFs, home: home)
+        let bytes = sourceFs.exists(dest) ? try sourceFs.readData(dest) : nil
+        return (result, bytes)
+    }
+
+    /// No flags must equal a full backup: global + both projects, identical to the
+    /// explicit `--global --projects` selection.
+    func testBackupNoFlagsEqualsFullBackup() throws {
+        let home = "/Users/alice"
+        let plain = InMemoryFileSystem(); seedSourceHome(plain, home: home)
+        let explicit = InMemoryFileSystem(); seedSourceHome(explicit, home: home)
+
+        let (r1, b1) = try makeArchive(sourceFs: plain, home: home, flags: [])
+        let (r2, b2) = try makeArchive(sourceFs: explicit, home: home, flags: ["--global", "--projects"])
+        XCTAssertEqual(r1.code, 0, r1.stderr)
+        XCTAssertEqual(r2.code, 0, r2.stderr)
+        XCTAssertEqual(b1, b2, "no flags must produce the same archive as --global --projects")
+
+        // Both projects present in the archive.
+        let plan = try RestorePlan(archive: XCTUnwrap(b1))
+        XCTAssertEqual(Set(plan.projects.map(\.path)), ["/Users/alice/git/App", "/Users/alice/git/Web"])
+    }
+
+    /// `--project <path>` restricts the archive to exactly the named local project.
+    func testBackupSpecificProjectOnly() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let (result, bytes) = try makeArchive(
+            sourceFs: sourceFs, home: home, flags: ["--project", "/Users/alice/git/App"]
+        )
+        XCTAssertEqual(result.code, 0, result.stderr)
+        let plan = try RestorePlan(archive: XCTUnwrap(bytes))
+        XCTAssertEqual(plan.projects.map(\.path), ["/Users/alice/git/App"])
+
+        // Round-trip: only App is restored, Web's transcript never written.
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: try XCTUnwrap(bytes), at: archivePath)
+        let restored = run(["restore", "--archive", archivePath], fs: targetFs, home: home)
+        XCTAssertEqual(restored.code, 0, restored.stderr)
+        XCTAssertTrue(targetFs.exists("\(home)/.claude/projects/\(appEncoded)/11111111-1111-1111-1111-111111111111.jsonl"))
+        XCTAssertFalse(targetFs.exists("\(home)/.claude/projects/\(webEncoded)/22222222-2222-2222-2222-222222222222.jsonl"))
+    }
+
+    /// `--no-projects` drops every project from the archive but keeps the global
+    /// layer, which restores onto the target.
+    func testBackupNoProjectsKeepsOnlyGlobal() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let (result, bytes) = try makeArchive(sourceFs: sourceFs, home: home, flags: ["--no-projects"])
+        XCTAssertEqual(result.code, 0, result.stderr)
+        let plan = try RestorePlan(archive: XCTUnwrap(bytes))
+        XCTAssertTrue(plan.projects.isEmpty, "no project should survive --no-projects")
+
+        // Global layer is present: it restores on the target.
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: try XCTUnwrap(bytes), at: archivePath)
+        let restored = run(["restore", "--archive", archivePath], fs: targetFs, home: home)
+        XCTAssertEqual(restored.code, 0, restored.stderr)
+        XCTAssertEqual(try targetFs.readData("\(home)/.claude/settings.json"), Data(#"{"theme":"dark"}"#.utf8))
+    }
+
+    /// `--no-global` drops the global layer from the archive; restoring it writes
+    /// no global files, but the projects still transfer.
+    func testBackupNoGlobalKeepsOnlyProjects() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let (result, bytes) = try makeArchive(sourceFs: sourceFs, home: home, flags: ["--no-global"])
+        XCTAssertEqual(result.code, 0, result.stderr)
+
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: try XCTUnwrap(bytes), at: archivePath)
+        let restored = run(["restore", "--archive", archivePath], fs: targetFs, home: home)
+        XCTAssertEqual(restored.code, 0, restored.stderr)
+        // No global files written — the archive carried an empty global layer.
+        XCTAssertFalse(targetFs.exists("\(home)/.claude/settings.json"))
+        XCTAssertFalse(targetFs.exists("\(home)/.claude/CLAUDE.md"))
+        // Projects still transferred.
+        XCTAssertTrue(targetFs.exists("\(home)/.claude/projects/\(appEncoded)/11111111-1111-1111-1111-111111111111.jsonl"))
+    }
+
+    /// Conflicting `--global --no-global`: "off" wins (evaluated last), matching the
+    /// restore-side parser. The archive carries no global layer.
+    func testBackupGlobalConflictOffWins() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let (result, bytes) = try makeArchive(
+            sourceFs: sourceFs, home: home, flags: ["--global", "--no-global"]
+        )
+        XCTAssertEqual(result.code, 0, result.stderr)
+
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: try XCTUnwrap(bytes), at: archivePath)
+        let restored = run(["restore", "--archive", archivePath], fs: targetFs, home: home)
+        XCTAssertEqual(restored.code, 0, restored.stderr)
+        XCTAssertFalse(targetFs.exists("\(home)/.claude/settings.json"))
+    }
+
+    /// `--project` with a path that isn't on this machine warns and is skipped; with
+    /// no other project enabled the archive ends up with no projects.
+    func testBackupUnknownProjectPathWarnsAndSkips() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let (result, bytes) = try makeArchive(
+            sourceFs: sourceFs, home: home, flags: ["--project", "/Users/alice/git/Nope"]
+        )
+        XCTAssertEqual(result.code, 0, result.stderr)
+        XCTAssertTrue(result.stderr.contains("Nope"), result.stderr)
+        let plan = try RestorePlan(archive: XCTUnwrap(bytes))
+        XCTAssertTrue(plan.projects.isEmpty)
+    }
+
+    /// Parity with restore: a disabled master gates the whole set. `--no-projects
+    /// --project <path>` yields no projects despite the `--project` — it is inert
+    /// while the master is off — and is equivalent to plain `--no-projects`.
+    func testBackupNoProjectsWithProjectIsInert() throws {
+        let home = "/Users/alice"
+        let gated = InMemoryFileSystem(); seedSourceHome(gated, home: home)
+        let plain = InMemoryFileSystem(); seedSourceHome(plain, home: home)
+
+        let (r1, b1) = try makeArchive(
+            sourceFs: gated, home: home, flags: ["--no-projects", "--project", "/Users/alice/git/App"]
+        )
+        let (r2, b2) = try makeArchive(sourceFs: plain, home: home, flags: ["--no-projects"])
+        XCTAssertEqual(r1.code, 0, r1.stderr)
+        XCTAssertEqual(r2.code, 0, r2.stderr)
+        XCTAssertEqual(b1, b2, "--project must be inert when the master is off")
+
+        let plan = try RestorePlan(archive: XCTUnwrap(b1))
+        XCTAssertTrue(plan.projects.isEmpty, "no project despite --project when the master is off")
+
+        // The global layer is still present.
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: try XCTUnwrap(b1), at: archivePath)
+        let restored = run(["restore", "--archive", archivePath], fs: targetFs, home: home)
+        XCTAssertEqual(restored.code, 0, restored.stderr)
+        XCTAssertEqual(try targetFs.readData("\(home)/.claude/settings.json"), Data(#"{"theme":"dark"}"#.utf8))
+    }
+
+    /// A `--project` with no following value is a usage error, not a silent
+    /// fall-back to "all projects" — and no archive is written.
+    func testBackupDanglingProjectFlagIsUsageError() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let (result, bytes) = try makeArchive(sourceFs: sourceFs, home: home, flags: ["--project"])
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
+        XCTAssertNil(bytes, "no archive should be written on a usage error")
+    }
+
+    /// `--project` immediately followed by another flag is a usage error, not a
+    /// swallow of the flag as a path.
+    func testBackupProjectFlagDoesNotSwallowNextFlag() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let (result, bytes) = try makeArchive(
+            sourceFs: sourceFs, home: home, flags: ["--project", "--no-global"]
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
+        XCTAssertNil(bytes, "no archive should be written on a usage error")
+    }
+
+    /// The same guard must hold when a real path trails the swallowed flag:
+    /// `--project --no-global <path>` must not let `--no-global` be consumed first
+    /// (breaking adjacency) so `--project` binds to the path and global is silently
+    /// dropped. Left-to-right parsing over the original stream prevents exactly this.
+    func testBackupProjectFlagDoesNotSwallowNextFlagWithTrailingPath() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let (result, bytes) = try makeArchive(
+            sourceFs: sourceFs, home: home,
+            flags: ["--project", "--no-global", "/Users/alice/git/App"]
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
+        XCTAssertNil(bytes, "no archive should be written on a usage error")
+    }
+
+    /// A value option between `--project` and a trailing path must not be
+    /// consumed first (shifting the path next to `--project`): `--project --out
+    /// <path> <projectPath>` must be a usage error. The parser validates
+    /// adjacency against the original token stream, left-to-right, so no
+    /// out-of-order removal can misbind `--project` to the path.
+    func testBackupProjectFlagDoesNotSwallowValueOption() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let result = run(
+            ["backup", "--project", "--out", "\(home)/backup.ccsync", "/Users/alice/git/App"],
+            fs: sourceFs, home: home
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
+        XCTAssertFalse(sourceFs.exists("\(home)/backup.ccsync"),
+                       "no archive should be written on a usage error")
+    }
+
+    /// `--out` immediately followed by another flag is a usage error, not a
+    /// swallow of the flag as the output filename (which would still back up
+    /// global config despite the user opting out).
+    func testBackupOutFlagDoesNotSwallowNextFlag() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let result = run(["backup", "--out", "--no-global"], fs: sourceFs, home: home)
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--out"), result.stderr)
+        XCTAssertFalse(sourceFs.allFiles.keys.contains("\(home)/--no-global"),
+                       "no archive should be written under the swallowed flag name")
+    }
+
+    /// A singleton value option given twice is a usage error, not a silent
+    /// last-wins: `restore --archive a --archive b` must not quietly restore `b`.
+    func testRestoreDuplicateArchiveFlagIsUsageError() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem()
+        seedSourceHome(sourceFs, home: home)
+        let (_, bytes) = try makeArchive(sourceFs: sourceFs, home: home)
+        let safe = "/tmp/safe.ccsync"
+        let other = "/tmp/other.ccsync"
+        let targetFs = seedTargetHome(archive: bytes, at: safe)
+        try targetFs.writeData(bytes, to: other)
+
+        // Parsing rejects the duplicate before any archive is read, so both
+        // being valid archives makes the point: `other` is never restored.
+        let result = run(["restore", "--archive", safe, "--archive", other],
+                         fs: targetFs, home: home, targetVersion: "1.2.3")
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--archive"), result.stderr)
+    }
+
+    /// The backup side of the same rule for `--out`.
+    func testBackupDuplicateOutFlagIsUsageError() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem(); seedSourceHome(sourceFs, home: home)
+
+        let result = run(["backup", "--out", "\(home)/a.ccsync", "--out", "\(home)/b.ccsync"],
+                         fs: sourceFs, home: home)
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--out"), result.stderr)
+        XCTAssertFalse(sourceFs.allFiles.keys.contains("\(home)/b.ccsync"),
+                       "no archive should be written when --out is duplicated")
+    }
+
     // MARK: - Errors & usage
 
     func testListMissingArchiveArgumentFails() {
@@ -227,6 +488,48 @@ final class CLIEndToEndTests: XCTestCase {
         XCTAssertEqual(result.code, 2)
         XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
         // Global config was not restored — parsing stopped before any write.
+        XCTAssertFalse(targetFs.exists("\(home)/.claude/settings.json"))
+    }
+
+    /// As above, but with a real path trailing the swallowed flag:
+    /// `--project --no-global <path>` must still be a usage error — the boolean
+    /// flag must not be removed ahead of the `--project` adjacency check.
+    func testRestoreProjectFlagDoesNotSwallowNextFlagWithTrailingPath() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem()
+        seedSourceHome(sourceFs, home: home)
+        let (_, bytes) = try makeArchive(sourceFs: sourceFs, home: home)
+
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: bytes, at: archivePath)
+
+        let result = run(
+            ["restore", "--archive", archivePath, "--project", "--no-global", "/Users/alice/git/App"],
+            fs: targetFs, home: home
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
+        XCTAssertFalse(targetFs.exists("\(home)/.claude/settings.json"))
+    }
+
+    /// The value-option variant on the restore side: `--project --archive <path>
+    /// <projectPath>` must be a usage error, not let `--archive` be consumed
+    /// first and bind `--project` to the trailing path.
+    func testRestoreProjectFlagDoesNotSwallowValueOption() throws {
+        let home = "/Users/alice"
+        let sourceFs = InMemoryFileSystem()
+        seedSourceHome(sourceFs, home: home)
+        let (_, bytes) = try makeArchive(sourceFs: sourceFs, home: home)
+
+        let archivePath = "/tmp/backup.ccsync"
+        let targetFs = seedTargetHome(archive: bytes, at: archivePath)
+
+        let result = run(
+            ["restore", "--project", "--archive", archivePath, "/Users/alice/git/App"],
+            fs: targetFs, home: home
+        )
+        XCTAssertEqual(result.code, 2)
+        XCTAssertTrue(result.stderr.contains("--project"), result.stderr)
         XCTAssertFalse(targetFs.exists("\(home)/.claude/settings.json"))
     }
 }

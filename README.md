@@ -61,7 +61,12 @@ prints usage).
 ```sh
 # Back up this machine's config + history into a single archive.
 # Default destination is the home directory; override with --out.
-ccsync backup [--out <path>]        # prints the written archive path
+# Selection flags mirror `restore`; with no flags a full backup is taken.
+ccsync backup [--out <path>] \
+    [--global | --no-global] \        # include/exclude global config
+    [--projects | --no-projects] \    # include/exclude all projects (master switch)
+    [--project <path> ...]            # restrict to specific source project paths (repeatable)
+                                      # prints the written archive path
 
 # Print the archive's project list as machine-readable JSON: top-level
 # `sourceUser`, optional `sourceClaudeVersion`, and `projects` (each with its
@@ -75,13 +80,19 @@ ccsync restore --archive <path> \
     [--project <path> ...]            # restrict to specific source project paths (repeatable)
 ```
 
-Selection semantics:
+Selection semantics (identical for `backup` and `restore`):
 
-- With no selection flags, everything in the archive is restored (global + all projects).
-- `--no-projects` restores only the global config; `--no-global` restores only projects.
-- One or more `--project <path>` restricts the run to exactly those source paths.
-- A project whose target folder is missing on this machine is **skipped** (reported with a
-  reason) — the rest still restore and the run completes successfully.
+- With no selection flags, everything is included — for `backup`, a full backup (global +
+  all projects); for `restore`, everything in the archive is restored.
+- `--no-projects` keeps only the global config; `--no-global` keeps only projects.
+- One or more `--project <path>` restricts the run to exactly those source paths. When the
+  projects master is off (`--no-projects`), `--project` is inert — the whole set is gated.
+- On `backup`, `--global`/`--no-global` selects whether the global layer is collected at
+  all; an archive taken with `--no-global` simply carries no global payloads.
+- On `restore`, a project whose target folder is missing on this machine is **skipped**
+  (reported with a reason) — the rest still restore and the run completes successfully. On
+  `backup`, a project with no on-disk history directory is still included but flagged
+  **incomplete** ("no history directory on disk").
 - Before overwriting anything, CCSync writes a snapshot of the current state under
   `~/.claude/.ccsync-backups/<timestamp>/`. Restore is idempotent.
 

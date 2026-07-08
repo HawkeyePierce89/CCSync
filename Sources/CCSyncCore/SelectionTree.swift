@@ -76,6 +76,19 @@ public struct SelectionTree: Equatable, Sendable {
         )
     }
 
+    /// Default-selection builder for the backup side: global on, the Projects
+    /// master on, and every project from the local inventory checked. Mirrors the
+    /// `RestorePlan` builder so GUI and CLI present an identical two-level tree.
+    public init(plan: BackupPlan) {
+        self.init(
+            globalSelected: true,
+            projectsMasterSelected: true,
+            projects: plan.projects.map {
+                Node(path: $0.path, encodedName: $0.encodedName, incomplete: $0.incomplete, isSelected: true)
+            }
+        )
+    }
+
     // MARK: - Resolution
 
     /// Collapse the tree into the flat `Selection` the restore engine consumes.

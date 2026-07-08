@@ -10,10 +10,10 @@ An SPM workspace at the repository root, plus a separate Xcode app target.
 
 - **`CCSyncCore`** (`Sources/CCSyncCore/`) — the library. All behaviour lives here:
   `BackupCollector`, `BackupService`, `Archive/` (Manifest, ArchiveWriter, ArchiveReader,
-  Container, VersionCheck), `RestorePlan`, `RestoreService`, `Snapshot`, `JSONMerge`,
-  `SelectionTree`, `RestoreReport`, `KnownPaths`, `UserRemap`, `ProjectPathEncoding`,
-  `FileSystem`, and `Model/` (BackupModel, JSONValue). The CLI entry point (`CCSyncCLI`)
-  also lives in Core as `CLI.swift`.
+  Container, VersionCheck), `ProjectInventory`, `BackupPlan`, `RestorePlan`,
+  `RestoreService`, `Snapshot`, `JSONMerge`, `SelectionTree`, `RestoreReport`, `KnownPaths`,
+  `UserRemap`, `ProjectPathEncoding`, `FileSystem`, and `Model/` (BackupModel, JSONValue).
+  The CLI entry point (`CCSyncCLI`) also lives in Core as `CLI.swift`.
 - **`ccsync`** (`Sources/ccsync/main.swift`) — a thin executable. It builds a real
   `Environment` (a `RealFileSystem`, the home dir, stdout/stderr sinks, a version provider)
   and forwards `CommandLine.arguments` to `CCSyncCLI.run`. No logic.
@@ -58,6 +58,13 @@ The machine-readable seam shared by CLI and GUI:
 - **Restore:** `RestoreService.restore(archive:selection:)` performs restore by an explicit
   `Selection` and returns a `RestoreReport` (restored / skipped+reason / warnings /
   snapshot path). Same call from CLI and GUI → same result (acceptance #7).
+- **Backup selection:** `BackupPlan(fileSystem:paths:sourceUser:)` mirrors `RestorePlan` but
+  is sourced from the local machine (via `ProjectInventory.list`, which never reads
+  sessions), and feeds `SelectionTree(plan:)`. `BackupCollector.collect(selection:)` and
+  `BackupService.backup(to:selection:)` accept a `Selection` — global off skips
+  `collectGlobal`, unselected projects are cut before any read. `nil` is a backward-compat
+  "select all" default that GUI and CLI never pass: both always resolve the tree to an
+  explicit `Selection`. The restore side and `globalRestored` semantics are unchanged.
 
 ## Decisions locked before implementation
 

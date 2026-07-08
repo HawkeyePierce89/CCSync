@@ -18,10 +18,22 @@ public struct BackupCollector {
         self.sourceUser = sourceUser ?? (paths.home as NSString).lastPathComponent
     }
 
-    public func collect() throws -> BackupModel {
+    /// Collect the in-memory model.
+    ///
+    /// - Parameter selection: which layers to capture. `nil` means "everything"
+    ///   and exists only for backward compatibility with existing `collect()`
+    ///   call sites — GUI and CLI always pass an explicit, non-nil `Selection`
+    ///   derived from `SelectionTree.resolvedSelection()`. When `selection.global`
+    ///   is `false` the global config is not read at all and an empty
+    ///   `GlobalConfig()` is stored; a project whose `encodedName` is not in
+    ///   `selection.projectEncodedNames` is cut before any of its sessions or
+    ///   local settings are read.
+    public func collect(selection: Selection? = nil) throws -> BackupModel {
         let claudeJSON = try readClaudeJSON()
-        let global = try collectGlobal(claudeJSON: claudeJSON)
-        let projects = try collectProjects(claudeJSON: claudeJSON)
+        let global = (selection?.global ?? true)
+            ? try collectGlobal(claudeJSON: claudeJSON)
+            : GlobalConfig()
+        let projects = try collectProjects(claudeJSON: claudeJSON, selection: selection)
         return BackupModel(sourceUser: sourceUser, global: global, projects: projects)
     }
 
@@ -70,50 +82,32 @@ public struct BackupCollector {
 
     // MARK: - Projects
 
-    private func collectProjects(claudeJSON: JSONValue) throws -> [ProjectEntry] {
-        let projectSettings = claudeJSON["projects"]?.objectValue ?? [:]
-
-        var existingDirs: Set<String> = []
-        if isListableDirectory(paths.projectsDir) {
-            existingDirs = Set(try fs.listDirectory(paths.projectsDir))
-        }
+    private func collectProjects(claudeJSON: JSONValue, selection: Selection?) throws -> [ProjectEntry] {
+        // Matching (entry ↔ directory, ordering, incomplete flags) is shared with
+        // `BackupPlan` via `ProjectInventory`; the collector only adds the payload,
+        // reading sessions solely when the inventory saw a history directory.
+        let inventory = try ProjectInventory.list(claudeJSON: claudeJSON, fileSystem: fs, paths: paths)
         let todoNames = listTodos()
 
         var entries: [ProjectEntry] = []
-        var matchedDirs: Set<String> = []
-
-        // Entries from ~/.claude.json, linked to their history directory if present.
-        for path in projectSettings.keys.sorted() {
-            let encoded = ProjectPathEncoding.encode(path)
-            let hasDir = existingDirs.contains(encoded)
-            if hasDir { matchedDirs.insert(encoded) }
-
-            let sessions = hasDir
-                ? try collectSessions(encoded: encoded, todoNames: todoNames)
+        for entry in inventory {
+            // Selectivity before reading: cut an unselected project here, before
+            // any `collectSessions`/`collectLocalSettings` call, so its paths never
+            // enter the FS journal. Filter the source, not the finished model.
+            if let selection, !selection.projectEncodedNames.contains(entry.encodedName) {
+                continue
+            }
+            let sessions = entry.hasHistoryDir
+                ? try collectSessions(encoded: entry.encodedName, todoNames: todoNames)
                 : []
-
             entries.append(ProjectEntry(
-                path: path,
-                encodedName: encoded,
-                settings: projectSettings[path],
-                localSettings: try collectLocalSettings(projectPath: path),
+                path: entry.path,
+                encodedName: entry.encodedName,
+                settings: entry.settings,
+                localSettings: try collectLocalSettings(projectPath: entry.path),
                 sessions: sessions,
-                incomplete: !hasDir,
-                incompleteReason: hasDir ? nil : "no history directory on disk"
-            ))
-        }
-
-        // History directories with no matching entry in ~/.claude.json.
-        for dir in existingDirs.sorted() where !matchedDirs.contains(dir) {
-            guard isListableDirectory(paths.projectDir(encoded: dir)) else { continue }
-            entries.append(ProjectEntry(
-                path: "",
-                encodedName: dir,
-                settings: nil,
-                localSettings: nil,
-                sessions: try collectSessions(encoded: dir, todoNames: todoNames),
-                incomplete: true,
-                incompleteReason: "no entry in ~/.claude.json"
+                incomplete: entry.incomplete,
+                incompleteReason: entry.incompleteReason
             ))
         }
 
