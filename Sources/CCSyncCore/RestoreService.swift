@@ -76,14 +76,13 @@ public struct RestoreService {
         var claudeJSONDirty = false
 
         if selection.global {
-            try restoreGlobal(
+            report.globalRestored = try restoreGlobal(
                 reader,
                 snapshot: snapshot,
                 captured: &captured,
                 claudeJSON: &claudeJSON,
                 dirty: &claudeJSONDirty
             )
-            report.globalRestored = true
         }
 
         for project in manifest.projects
@@ -151,18 +150,26 @@ public struct RestoreService {
 
     // MARK: - Global
 
+    /// Write back the global layer, returning whether anything was actually
+    /// applied. `selection.global == true` means the caller *wants* the layer; the
+    /// return value reports whether the archive carried any global content to
+    /// write. An empty global layer (e.g. `--no-global` or an empty source home)
+    /// writes nothing and returns `false`.
     private func restoreGlobal(
         _ reader: ArchiveReader,
         snapshot: Snapshot,
         captured: inout Bool,
         claudeJSON: inout JSONValue,
         dirty: inout Bool
-    ) throws {
+    ) throws -> Bool {
+        var applied = false
         if let settings = reader.payload(at: ArchiveLayout.globalSettings) {
             try writeWithSnapshot(settings, to: paths.globalSettings, within: paths.claudeDir, snapshot: snapshot, captured: &captured)
+            applied = true
         }
         if let claudeMD = reader.payload(at: ArchiveLayout.globalClaudeMD) {
             try writeWithSnapshot(claudeMD, to: paths.globalClaudeMD, within: paths.claudeDir, snapshot: snapshot, captured: &captured)
+            applied = true
         }
         for path in reader.payloadPaths(withPrefix: ArchiveLayout.globalDirsPrefix) {
             guard let data = reader.payload(at: path) else { continue }
@@ -193,13 +200,16 @@ public struct RestoreService {
             // so containing against `claudeDir` is no looser — and it makes the
             // walk check the config-dir root component too.
             try writeWithSnapshot(data, to: target, within: paths.claudeDir, snapshot: snapshot, captured: &captured)
+            applied = true
         }
         if let mcpData = reader.payload(at: ArchiveLayout.globalMCPServers),
            let mcp = try? JSONValue(data: mcpData) {
             let base = claudeJSON["mcpServers"] ?? .object([:])
             claudeJSON = setKey("mcpServers", JSONMerge.merge(base, mcp), in: claudeJSON)
             dirty = true
+            applied = true
         }
+        return applied
     }
 
     // MARK: - Projects

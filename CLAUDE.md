@@ -64,7 +64,11 @@ The machine-readable seam shared by CLI and GUI:
   `BackupService.backup(to:selection:)` accept a `Selection` — global off skips
   `collectGlobal`, unselected projects are cut before any read. `nil` is a backward-compat
   "select all" default that GUI and CLI never pass: both always resolve the tree to an
-  explicit `Selection`. The restore side and `globalRestored` semantics are unchanged.
+  explicit `Selection`. On the restore side, `globalRestored` is true only when the
+  global layer was both selected (`selection.global`) and actually applied — settings.json
+  or CLAUDE.md or at least one config-dir file written, or the mcpServers merge performed.
+  An archive with an empty global layer (from `--no-global` or an empty home) writes
+  nothing, so `globalRestored` stays `false` even when `selection.global == true`.
 
 ## Decisions locked before implementation
 

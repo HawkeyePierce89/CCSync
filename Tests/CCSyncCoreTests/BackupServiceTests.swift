@@ -259,9 +259,10 @@ final class BackupServiceTests: XCTestCase {
             Data("orphan-transcript".utf8)
         )
 
-        // `globalRestored` reflects the restore-side `selection.global`, not the
-        // archive's (empty) global content — the unchanged contract.
-        XCTAssertTrue(report.globalRestored)
+        // An empty global layer writes nothing, so `globalRestored` is false even
+        // though `selection.global == true` — it reports a real write, not a mere
+        // selection.
+        XCTAssertFalse(report.globalRestored)
     }
 
     // MARK: - Container round-trip
