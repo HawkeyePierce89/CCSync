@@ -97,7 +97,10 @@ Selection semantics (identical for `backup` and `restore`):
   `~/.claude/.ccsync-backups/<timestamp>/`. Restore is idempotent.
 
 `restore` prints a machine-readable JSON report (`globalRestored`, `restoredProjects`,
-`skippedProjects` with reasons, `warnings`, `snapshotPath`).
+`skippedProjects` with reasons, `warnings`, `snapshotPath`). `globalRestored` reflects a
+real write, not just the selection: it can be `false` even with `--global` when the archive
+carried no global content (e.g. it was taken with `--no-global`), since restore then writes
+nothing for the global layer.
 
 ## The macOS app
 

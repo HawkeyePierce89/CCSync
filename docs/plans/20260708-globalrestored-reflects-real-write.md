@@ -125,10 +125,10 @@ they are.
 
 ### Task 4: Update documentation
 
-- [ ] CLAUDE.md (line 67): remove "The restore side and globalRestored semantics are
+- [x] CLAUDE.md (line 67): remove "The restore side and globalRestored semantics are
   unchanged"; record the new semantics — `globalRestored` means the global layer was
   selected (`selection.global`) and actually applied (settings.json / CLAUDE.md / at
   least one config-dir file written, or the mcpServers merge performed).
-- [ ] README.md (restore JSON-report description, ~line 99): clarify that
+- [x] README.md (restore JSON-report description, ~line 99): clarify that
   `globalRestored: false` is possible even with --global when the archive had no global
   content.
