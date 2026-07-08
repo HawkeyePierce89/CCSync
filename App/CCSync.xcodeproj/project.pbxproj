@@ -12,6 +12,7 @@
 		AA0000000000000000000022 /* RestoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000012 /* RestoreView.swift */; };
 		AA0000000000000000000023 /* AppPanels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000013 /* AppPanels.swift */; };
 		AA0000000000000000000024 /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000015 /* LICENSE */; };
+		AA0000000000000000000025 /* AppLegalText.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000016 /* AppLegalText.swift */; };
 		AA0000000000000000000032 /* CCSyncCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000030 /* CCSyncCore */; };
 /* End PBXBuildFile section */
 
@@ -23,6 +24,7 @@
 		AA0000000000000000000013 /* AppPanels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPanels.swift; sourceTree = "<group>"; };
 		AA0000000000000000000014 /* CCSync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CCSync.entitlements; sourceTree = "<group>"; };
 		AA0000000000000000000015 /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; name = LICENSE; path = "../LICENSE"; sourceTree = "<group>"; };
+		AA0000000000000000000016 /* AppLegalText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLegalText.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,6 +63,7 @@
 				AA0000000000000000000011 /* BackupView.swift */,
 				AA0000000000000000000012 /* RestoreView.swift */,
 				AA0000000000000000000013 /* AppPanels.swift */,
+				AA0000000000000000000016 /* AppLegalText.swift */,
 				AA0000000000000000000014 /* CCSync.entitlements */,
 			);
 			path = CCSync;
@@ -145,6 +148,7 @@
 				AA0000000000000000000021 /* BackupView.swift in Sources */,
 				AA0000000000000000000022 /* RestoreView.swift in Sources */,
 				AA0000000000000000000023 /* AppPanels.swift in Sources */,
+				AA0000000000000000000025 /* AppLegalText.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -76,26 +76,26 @@ regression gate (must stay green with no edits).
 - Create: `App/CCSync/AppLegalText.swift`
 - Modify: `App/CCSync.xcodeproj/project.pbxproj`
 
-- [ ] Declare `enum AppLegalText` with a `disclaimer` constant — a short text based
+- [x] Declare `enum AppLegalText` with a `disclaimer` constant — a short text based
   on the README Disclaimer section (overwrites files in `~/.claude`,
   `~/.claude.json`, and per-project `settings.local.json`; a snapshot is written
   before overwrite; software provided "as is"; author accepts no liability; use at
   your own risk). Do not "invent" legal wording beyond the README.
-- [ ] Add a helper that reads the full license text from the bundle:
+- [x] Add a helper that reads the full license text from the bundle:
   `Bundle.main.url(forResource: "LICENSE", withExtension: nil)` →
   `String(contentsOf:)`. If the resource is missing, the fallback message must point
   the user to the LICENSE file in the project repository (e.g. "License text
   unavailable in this build. See the LICENSE file in the project repository:
   https://github.com/…/blob/master/LICENSE") — never a bare "not found", so the
   terms remain locatable even if the bundled resource ever drops out.
-- [ ] Add a `copyright` helper that derives the copyright line from the bundled
+- [x] Add a `copyright` helper that derives the copyright line from the bundled
   LICENSE text — scan its lines for the one starting with `Copyright` and return it
   verbatim (`Copyright (c) 2026 Anton Karmanov`). Do not hardcode a separate
   copyright string; the root LICENSE stays the single source of truth for the
   copyright too. Fall back to an empty/neutral string only if the line is absent.
-- [ ] Add the file to PBXFileReference/PBXBuildFile/Sources build phase in
+- [x] Add the file to PBXFileReference/PBXBuildFile/Sources build phase in
   `project.pbxproj` (unique `AA0000…`-style ID).
-- [ ] Verify: build succeeds.
+- [x] Verify: build succeeds.
 
 ### Task 3: First-launch disclaimer sheet
 
