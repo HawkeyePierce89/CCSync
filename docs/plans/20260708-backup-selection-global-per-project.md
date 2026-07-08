@@ -94,12 +94,12 @@ Selection contract: `Selection` is the seam. `nil` means "everything selected" a
 - Modify: `Sources/CCSyncCore/CLI.swift`
 - Modify: `Tests/CCSyncCoreTests/CLIEndToEndTests.swift`
 
-- [ ] `runBackup`: parse `[--global|--no-global] [--projects|--no-projects] [--project <path> ...]` via the existing `boolFlag`/`repeatedOptionValues`; build `BackupPlan(fileSystem:paths:)`, `SelectionTree(plan:)`, apply flags in the SAME order as `runRestore` (first `--project` → reset all + enable by path match with a warning on unknown path; then `--global`, then `--projects`), and ALWAYS pass an explicit `tree.resolvedSelection()` into `backup(to:selection:)` (never `nil`).
-- [ ] No flags → full backup, produced via the default (all-on) tree resolved to an explicit `Selection` — not via the `nil` default.
-- [ ] Update `usage` for `backup`.
-- [ ] Tests: parsing of the new flags, conflicting/edge combinations (`--global --no-global`, dangling `--project`, `--project` with an unknown path), equivalence of "no flags" to a full backup; verify unselected content did not make it into the archive (via `RestorePlan` over the result).
-- [ ] Test `--no-projects --project <path>` (parity with restore): a disabled master gates the whole set — the resulting `resolvedSelection().projectEncodedNames` is empty despite `--project`; the produced archive contains no projects (checked via `RestorePlan`), the global layer is present. Result is equivalent to `--no-projects` without `--project` — `--project` is inert when the master is off (exactly like `runRestore`).
-- [ ] `swift test` — green before Task 5.
+- [x] `runBackup`: parse `[--global|--no-global] [--projects|--no-projects] [--project <path> ...]` via the existing `boolFlag`/`repeatedOptionValues`; build `BackupPlan(fileSystem:paths:)`, `SelectionTree(plan:)`, apply flags in the SAME order as `runRestore` (first `--project` → reset all + enable by path match with a warning on unknown path; then `--global`, then `--projects`), and ALWAYS pass an explicit `tree.resolvedSelection()` into `backup(to:selection:)` (never `nil`).
+- [x] No flags → full backup, produced via the default (all-on) tree resolved to an explicit `Selection` — not via the `nil` default.
+- [x] Update `usage` for `backup`.
+- [x] Tests: parsing of the new flags, conflicting/edge combinations (`--global --no-global`, dangling `--project`, `--project` with an unknown path), equivalence of "no flags" to a full backup; verify unselected content did not make it into the archive (via `RestorePlan` over the result).
+- [x] Test `--no-projects --project <path>` (parity with restore): a disabled master gates the whole set — the resulting `resolvedSelection().projectEncodedNames` is empty despite `--project`; the produced archive contains no projects (checked via `RestorePlan`), the global layer is present. Result is equivalent to `--no-projects` without `--project` — `--project` is inert when the master is off (exactly like `runRestore`).
+- [x] `swift test` — green before Task 5.
 
 ### Task 5: GUI — BackupView/BackupViewModel
 

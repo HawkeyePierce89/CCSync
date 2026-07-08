@@ -6,7 +6,9 @@ import Foundation
 /// wire-up: it builds a real `Environment` and forwards `CommandLine.arguments`.
 ///
 /// Commands:
-///   - `backup [--out <path>]`
+///   - `backup [--out <path>]` with an optional explicit selection:
+///       `--global` / `--no-global`, `--projects` / `--no-projects`,
+///       repeatable `--project <path>` (restrict to the named local paths).
 ///   - `list --archive <path>`               → machine-readable JSON project list
 ///   - `restore --archive <path>` with an explicit selection:
 ///       `--global` / `--no-global`, `--projects` / `--no-projects`,
@@ -87,16 +89,39 @@ public enum CCSyncCLI {
     private static func runBackup(_ args: [String], env: Environment) throws -> Int32 {
         var parser = ArgParser(args)
         let out = try parser.optionValue("--out")
+        let globalFlag = parser.boolFlag(on: "--global", off: "--no-global")
+        let projectsFlag = parser.boolFlag(on: "--projects", off: "--no-projects")
+        let projectPaths = try parser.repeatedOptionValues("--project")
         try parser.finish()
 
         let paths = KnownPaths(home: env.home)
+        let plan = try BackupPlan(fileSystem: env.fileSystem, paths: paths, sourceUser: env.sourceUser)
+        var tree = SelectionTree(plan: plan)
+
+        // A `--project` restricts the run to exactly the named source paths — same
+        // order of application as `runRestore`: reset all, enable by path match.
+        if !projectPaths.isEmpty {
+            for index in tree.projects.indices { tree.projects[index].isSelected = false }
+            for path in projectPaths {
+                guard let node = plan.projects.first(where: { $0.path == path }) else {
+                    env.stderr("ccsync: warning: no project with path '\(path)' on this machine")
+                    continue
+                }
+                tree.setProject(encodedName: node.encodedName, true)
+            }
+        }
+        if let globalFlag { tree.setGlobal(globalFlag) }
+        if let projectsFlag { tree.setProjectsMaster(projectsFlag) }
+
         let service = BackupService(
             fileSystem: env.fileSystem,
             paths: paths,
             sourceUser: env.sourceUser,
             sourceClaudeVersion: env.sourceClaudeVersion
         )
-        let destination = try service.backup(to: out)
+        // Always pass an explicit, non-nil Selection (never the backward-compat
+        // `nil` default) — even the no-flags case resolves the all-on tree.
+        let destination = try service.backup(to: out, selection: tree.resolvedSelection())
         env.stdout(destination)
         return 0
     }
@@ -188,7 +213,8 @@ public enum CCSyncCLI {
         ccsync — backup & restore Claude Code config and history
 
         Usage:
-          ccsync backup [--out <path>]
+          ccsync backup [--out <path>] [--global|--no-global]
+                        [--projects|--no-projects] [--project <path> ...]
           ccsync list --archive <path>
           ccsync restore --archive <path> [--global|--no-global]
                          [--projects|--no-projects] [--project <path> ...]
