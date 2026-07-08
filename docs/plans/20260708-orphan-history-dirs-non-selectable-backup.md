@@ -33,16 +33,16 @@ Orphaned history directories (`~/.claude/projects/<encoded>/` with no entry in `
 - Modify: `Sources/CCSyncCore/SelectionTree.swift`
 - Modify: `Tests/CCSyncCoreTests/SelectionTreeTests.swift`
 
-- [ ] In `SelectionTree.Node` add a public field `isSelectable: Bool` with documentation; in the memberwise `init` add a parameter `isSelectable: Bool = true` (last, so existing calls don't break) and assign it.
-- [ ] `init(plan: BackupPlan)`: for a node with `$0.path.isEmpty` build `Node(..., isSelected: false, ..., isSelectable: false)`; for others — as now (`isSelected: true`, `isSelectable: true`).
-- [ ] `init(plan: RestorePlan)`: all nodes `isSelectable: true` (behaviour unchanged, including orphan projects from the archive).
-- [ ] `setProject(encodedName:_:)`: after finding the index — `guard projects[index].isSelectable else { return }` (no-op for a non-selectable node); do not change `resolvedSelection()`.
-- [ ] Write/update tests in `SelectionTreeTests.swift`:
+- [x] In `SelectionTree.Node` add a public field `isSelectable: Bool` with documentation; in the memberwise `init` add a parameter `isSelectable: Bool = true` (last, so existing calls don't break) and assign it.
+- [x] `init(plan: BackupPlan)`: for a node with `$0.path.isEmpty` build `Node(..., isSelected: false, ..., isSelectable: false)`; for others — as now (`isSelected: true`, `isSelectable: true`).
+- [x] `init(plan: RestorePlan)`: all nodes `isSelectable: true` (behaviour unchanged, including orphan projects from the archive).
+- [x] `setProject(encodedName:_:)`: after finding the index — `guard projects[index].isSelectable else { return }` (no-op for a non-selectable node); do not change `resolvedSelection()`.
+- [x] Write/update tests in `SelectionTreeTests.swift`:
   - orphan backup-plan fixture (project with `path: ""`, `incompleteReason: "no entry in ~/.claude.json"`): node `isSelectable == false` and `isSelected == false`; a normal project — `isSelectable == true`, `isSelected == true`.
   - `setProject(encodedName: <orphan>, true)` on the default backup tree — node state does not change (no-op).
   - `resolvedSelection()` of the default backup tree does not contain the orphan name.
   - `SelectionTree(plan: RestorePlan)` with an orphan project from the archive: node `isSelectable == true`, `isSelected == true`, and `resolvedSelection()` contains it (regression — behaviour unchanged).
-- [ ] `swift test` — green before Task 2.
+- [x] `swift test` — green before Task 2.
 
 ### Task 2: CLI — pin the consequence (default-backup test)
 
