@@ -6,13 +6,38 @@ import SwiftUI
 /// CLI uses. No business logic and no selection-tree building live here.
 @main
 struct CCSyncApp: App {
+    /// First-launch acknowledgement of the disclaimer. UI state only (UserDefaults) —
+    /// not selection, so the "logic lives in Core" invariant is untouched.
+    @AppStorage("didAcknowledgeDisclaimer") private var didAcknowledgeDisclaimer = false
+
+    /// Opens the dedicated About window (below) so its scrollable content is guaranteed.
+    @Environment(\.openWindow) private var openWindow
+
     var body: some Scene {
         WindowGroup {
             RootView()
                 .frame(minWidth: 560, minHeight: 460)
+                .sheet(isPresented: .constant(!didAcknowledgeDisclaimer)) {
+                    DisclaimerSheet { didAcknowledgeDisclaimer = true }
+                }
         }
         .windowResizability(.contentMinSize)
+        .commands {
+            // Replace the stock About item so it opens our own panel with the full,
+            // scrollable license text instead of the default (truncated) alert.
+            CommandGroup(replacing: .appInfo) {
+                Button("About CCSync") { openWindow(id: Self.aboutWindowID) }
+            }
+        }
+
+        Window("About CCSync", id: Self.aboutWindowID) {
+            AboutView()
+        }
+        .windowResizability(.contentSize)
     }
+
+    /// Stable identifier for the About `Window` scene, referenced by `openWindow`.
+    private static let aboutWindowID = "about"
 }
 
 /// Two screens — Backup and Restore — behind a tab picker. Both are dumb renderers

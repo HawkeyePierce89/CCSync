@@ -108,6 +108,11 @@ nothing for the global layer.
 and Restore — that render the Core selection tree and call the same contract the CLI uses.
 It carries no business logic of its own.
 
+On first launch the app shows a one-time disclaimer (the same terms as the
+[Disclaimer](#disclaimer) section below) that must be acknowledged before use;
+acknowledgement is remembered across launches. The full MIT license text and the app
+version are available any time from **CCSync ▸ About CCSync**.
+
 Build it from the command line (or open the project in Xcode 15+ and press Run):
 
 ```sh
