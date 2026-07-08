@@ -15,11 +15,23 @@ App/
     BackupView.swift        Backup screen + BackupViewModel
     RestoreView.swift       Restore screen + RestoreViewModel
     AppPanels.swift         NSOpenPanel helpers
+    AppLegalText.swift      Disclaimer wording + LICENSE reader + copyright helper
+    DisclaimerSheet.swift   Non-dismissible first-launch disclaimer sheet
+    AboutView.swift         About panel (name, version, copyright, license)
     CCSync.entitlements     App Sandbox OFF (see below)
 ```
 
 The project references the root package via an `XCLocalSwiftPackageReference`
 (`relativePath = ".."`) and links the `CCSyncCore` product. No source is duplicated.
+
+## Bundled LICENSE
+
+The root `LICENSE` is bundled as an app resource (a build-file reference to
+`../LICENSE` in the Resources build phase — no text copy), so it ships as
+`CCSync.app/Contents/Resources/LICENSE`. At runtime `AppLegalText` reads it from the
+bundle for the About panel and derives the copyright line from it, keeping the MIT
+text and copyright in exactly one place. The first-launch disclaimer sheet and the
+About panel are the two in-app surfaces where the terms are reachable.
 
 ## Build (development)
 

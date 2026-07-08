@@ -155,8 +155,8 @@ regression gate (must stay green with no edits).
 
 ### Task 6: Update documentation
 
-- [ ] If it adds clarity for a builder, note in `App/README-build.md` that LICENSE is
+- [x] If it adds clarity for a builder, note in `App/README-build.md` that LICENSE is
   part of the bundle resources and reachable from About/the disclaimer (only if
-  genuinely helpful).
-- [ ] Do not change CLAUDE.md — Core internal patterns and the contract are
-  untouched.
+  genuinely helpful). — added a "Bundled LICENSE" section and listed the new files.
+- [x] Do not change CLAUDE.md — Core internal patterns and the contract are
+  untouched. — CLAUDE.md left unmodified.
