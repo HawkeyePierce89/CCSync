@@ -13,6 +13,10 @@ import Foundation
 ///   - `restore --archive <path>` with an explicit selection:
 ///       `--global` / `--no-global`, `--projects` / `--no-projects`,
 ///       repeatable `--project <path>` (restrict to the named source paths).
+///   - `delete (--project <path> ... | --orphans) [--with-project-folder] [--yes]`
+///       permanently removes selected projects' Claude data (and, with
+///       `--with-project-folder`, the on-disk folder). Dry-run by default; `--yes`
+///       applies it. No snapshot, no undo.
 public enum CCSyncCLI {
 
     /// Everything the runner needs from the outside world, injected so tests can
@@ -68,6 +72,8 @@ public enum CCSyncCLI {
                 return try runList(rest, env: env)
             case "restore":
                 return try runRestore(rest, env: env)
+            case "delete":
+                return try runDelete(rest, env: env)
             case "-h", "--help", "help":
                 env.stdout(usage)
                 return 0
@@ -189,6 +195,58 @@ public enum CCSyncCLI {
         return 0
     }
 
+    // MARK: - delete
+
+    private static func runDelete(_ args: [String], env: Environment) throws -> Int32 {
+        let parser = try ArgParser(
+            args,
+            repeatedOptions: ["--project"],
+            flagOptions: ["--orphans", "--with-project-folder", "--yes"]
+        )
+        let projectPaths = parser.repeatedOptionValues("--project")
+        let orphans = parser.flag("--orphans")
+        let withFolder = parser.flag("--with-project-folder")
+        let yes = parser.flag("--yes")
+
+        // At least one selector is required — a bare `delete` would otherwise be a
+        // no-op that looks like a successful run.
+        guard !projectPaths.isEmpty || orphans else {
+            throw CLIError("delete requires --project <path> ... and/or --orphans")
+        }
+
+        let paths = KnownPaths(home: env.home)
+        let plan = try ManagePlan(fileSystem: env.fileSystem, paths: paths, sourceUser: env.sourceUser)
+        var tree = SelectionTree(managePlan: plan)
+
+        // A Manage tree starts fully deselected; enable exactly the requested rows.
+        for path in projectPaths {
+            guard let node = plan.plan.projects.first(where: { $0.path == path }) else {
+                env.stderr("ccsync: warning: no project with path '\(path)' on this machine")
+                continue
+            }
+            tree.setProject(encodedName: node.encodedName, true)
+        }
+        if orphans {
+            for node in plan.plan.projects where node.path.isEmpty {
+                tree.setProject(encodedName: node.encodedName, true)
+            }
+        }
+
+        let operation: DeleteOperation = withFolder ? .entireProject : .claudeDataOnly
+        let dryRun = !yes
+
+        let service = DeleteService(fileSystem: env.fileSystem, paths: paths)
+        let report = try service.delete(
+            selection: tree.resolvedSelection(), operation: operation, dryRun: dryRun
+        )
+        env.stdout(String(decoding: try deleteReportJSON(report), as: UTF8.self))
+        for warning in report.warnings { env.stderr("ccsync: warning: \(warning)") }
+        if dryRun {
+            env.stderr("ccsync: dry run — nothing was changed; pass --yes to apply")
+        }
+        return 0
+    }
+
     // MARK: - Helpers
 
     private static func readArchive(_ path: String, env: Environment) throws -> Data {
@@ -218,6 +276,32 @@ public enum CCSyncCLI {
         return try JSONValue.object(object).serialized(pretty: true)
     }
 
+    /// Serialise a `DeleteReport` to machine-readable JSON, symmetric with
+    /// `reportJSON`. Includes the `dryRun` flag so a dry run and a real run are
+    /// distinguishable in the output even though their reports are otherwise equal.
+    private static func deleteReportJSON(_ report: DeleteReport) throws -> Data {
+        let object: [String: JSONValue] = [
+            "dryRun": .bool(report.dryRun),
+            "deletedProjects": .array(report.deletedProjects.map { deleted in
+                .object([
+                    "path": .string(deleted.path),
+                    "encodedName": .string(deleted.encodedName),
+                    "folderRemoved": .bool(deleted.folderRemoved),
+                    "removedPaths": .array(deleted.removedPaths.map(JSONValue.string)),
+                ])
+            }),
+            "skippedProjects": .array(report.skippedProjects.map { skipped in
+                .object([
+                    "path": .string(skipped.path),
+                    "encodedName": .string(skipped.encodedName),
+                    "reason": .string(skipped.reason),
+                ])
+            }),
+            "warnings": .array(report.warnings.map(JSONValue.string)),
+        ]
+        return try JSONValue.object(object).serialized(pretty: true)
+    }
+
     static let usage = """
         ccsync — backup & restore Claude Code config and history
 
@@ -227,6 +311,8 @@ public enum CCSyncCLI {
           ccsync list --archive <path>
           ccsync restore --archive <path> [--global|--no-global]
                          [--projects|--no-projects] [--project <path> ...]
+          ccsync delete (--project <path> ... | --orphans)
+                        [--with-project-folder] [--yes]
         """
 }
 
@@ -270,12 +356,16 @@ private struct ArgParser {
     /// on conflict, matching the documented `--global --no-global` semantics.
     private var boolOn: Set<String> = []
     private var boolOff: Set<String> = []
+    /// Presence-only flags that were seen (`--orphans`, `--with-project-folder`,
+    /// `--yes`). Unlike a `BoolFlag` there is no off-token; absence means `false`.
+    private var flagsSeen: Set<String> = []
 
     init(
         _ tokens: [String],
         valueOptions: Set<String> = [],
         repeatedOptions: Set<String> = [],
-        boolFlags: [BoolFlag] = []
+        boolFlags: [BoolFlag] = [],
+        flagOptions: Set<String> = []
     ) throws {
         var boolLookup: [String: (key: String, value: Bool)] = [:]
         for flag in boolFlags {
@@ -302,6 +392,9 @@ private struct ArgParser {
                 index += 2
             } else if let bool = boolLookup[token] {
                 if bool.value { boolOn.insert(bool.key) } else { boolOff.insert(bool.key) }
+                index += 1
+            } else if flagOptions.contains(token) {
+                flagsSeen.insert(token)
                 index += 1
             } else {
                 throw CLIError("unexpected argument '\(token)'")
@@ -330,4 +423,7 @@ private struct ArgParser {
         if boolOn.contains(on) { return true }
         return nil
     }
+
+    /// A presence-only flag: `true` if the token was given, `false` otherwise.
+    func flag(_ name: String) -> Bool { flagsSeen.contains(name) }
 }

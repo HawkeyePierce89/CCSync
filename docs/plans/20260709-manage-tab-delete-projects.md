@@ -259,29 +259,29 @@ Files:
 - Modify: `Sources/CCSyncCore/CLI.swift`
 - Create: `Tests/CCSyncCoreTests/DeleteCLITests.swift` (or extend `CLIEndToEndTests.swift`)
 
-- [ ] Extend `ArgParser` minimally with presence-only flags (`flagOptions: Set<String>` +
+- [x] Extend `ArgParser` minimally with presence-only flags (`flagOptions: Set<String>` +
       `func flag(_ name:) -> Bool`) for `--orphans`, `--with-project-folder`, `--yes`
       (keeping the existing single-pass unknown-token rejection).
-- [ ] Add `runDelete`: parse `--project <path> ...` (repeatable), `--orphans`,
+- [x] Add `runDelete`: parse `--project <path> ...` (repeatable), `--orphans`,
       `--with-project-folder`, `--yes`. Build `ManagePlan` →
       `SelectionTree(managePlan:)`; select by `--project` path match (warn on an unknown
       path, as `runBackup` does) and/or all orphan nodes for `--orphans`; require at
       least one selector (usage error otherwise). `operation = --with-project-folder ?
       .entireProject : .claudeDataOnly`. `dryRun = !--yes`.
-- [ ] Call `DeleteService.delete(selection:operation:dryRun:)`; print the `DeleteReport`
+- [x] Call `DeleteService.delete(selection:operation:dryRun:)`; print the `DeleteReport`
       as JSON via a new `deleteReportJSON` (symmetric with `reportJSON`, including
       `dryRun`, `deletedProjects`, `skippedProjects`, `warnings`); emit each warning to
       stderr; when dry-run, also print a stderr note that nothing was changed and `--yes`
       applies it.
-- [ ] Register `case "delete"` in `run(...)` and extend the `usage` text with the
+- [x] Register `case "delete"` in `run(...)` and extend the `usage` text with the
       `delete` grammar.
-- [ ] Write end-to-end tests on `InMemoryFileSystem`: `--project` data-only dry-run
+- [x] Write end-to-end tests on `InMemoryFileSystem`: `--project` data-only dry-run
       changes nothing and prints the would-be report; the same with `--yes` produces the
       identical report and the asserted removed-path set; `--with-project-folder --yes`
       removes the folder too; `--orphans --yes` deletes orphan history dirs; no selector
       is a usage error; parity — the `--yes` CLI report equals a direct `DeleteService`
       run for the same selection (acceptance #5/#7).
-- [ ] Run `swift test` — must pass before Task 6.
+- [x] Run `swift test` — must pass before Task 6.
 
 ### Task 6: App Manage tab + irreversibility modal
 
