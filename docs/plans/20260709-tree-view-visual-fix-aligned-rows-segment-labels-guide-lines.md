@@ -59,8 +59,8 @@ Presentation-only rework of the grouped project tree renderer. Three visual defe
 
 **Files:** none (verification only)
 
-- [ ] Run `swift test` — full suite green (including the new `Leaf.name` tests).
-- [ ] Run the canonical Debug xcodebuild gate: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` — must succeed (builds into `dist/CCSync.app` for the manual screenshot check).
+- [x] Run `swift test` — full suite green (including the new `Leaf.name` tests).
+- [x] Run the canonical Debug xcodebuild gate: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` — must succeed (builds into `dist/CCSync.app` for the manual screenshot check).
 
 ### Task 4: Update documentation
 
