@@ -59,8 +59,27 @@ public struct DeleteService {
         var report = DeleteReport(dryRun: dryRun)
         var claudeJSONDirty = false
 
+        // The selection identity is `encodedName`, but the path→name encoding is
+        // lossy (every non-alphanumeric collapses to `-`), so two distinct project
+        // paths — e.g. `/Users/x/a-b` and `/Users/x/a_b` — can share one encoded
+        // name. Acting on a selected-but-ambiguous name would delete *both* projects'
+        // folders and `~/.claude.json` keys from a single-project selection: an
+        // irreversible over-delete. Refuse any ambiguous selection — skip+warn,
+        // delete nothing for it — and let the user disambiguate manually.
+        var encodedNameCounts: [String: Int] = [:]
+        for entry in inventory { encodedNameCounts[entry.encodedName, default: 0] += 1 }
+
         for entry in inventory
         where selection.projectEncodedNames.contains(entry.encodedName) {
+            if encodedNameCounts[entry.encodedName, default: 0] > 1 {
+                report.skippedProjects.append(.init(
+                    path: entry.path,
+                    encodedName: entry.encodedName,
+                    reason: "ambiguous encoded name — another project path maps to the same "
+                        + "Claude directory; refused to delete, disambiguate manually"
+                ))
+                continue
+            }
             try process(
                 entry,
                 operation: operation,

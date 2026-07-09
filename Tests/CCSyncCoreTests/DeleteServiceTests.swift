@@ -323,6 +323,47 @@ final class DeleteServiceTests: XCTestCase {
         XCTAssertEqual(writes.count, 1)
     }
 
+    // MARK: - Encoded-name collision refusal
+
+    /// Two distinct project paths that encode to the same `projects/` name
+    /// (`a-b` and `a_b` → `-Users-alice-git-a-b`). Selecting that one encoded name
+    /// must NOT delete both — the run refuses and deletes nothing.
+    func testCollidingEncodedNamesAreRefusedNotOverDeleted() throws {
+        let dashPath = "/Users/alice/git/a-b"
+        let underscorePath = "/Users/alice/git/a_b"
+        let collidingEncoded = ProjectPathEncoding.encode(dashPath)
+        XCTAssertEqual(collidingEncoded, ProjectPathEncoding.encode(underscorePath))
+
+        let fs = InMemoryFileSystem()
+        fs.seedFile("\(home)/.claude.json",
+            #"{"projects":{"\#(dashPath)":{"a":1},"\#(underscorePath)":{"b":2}}}"#)
+        fs.seedFile("\(home)/.claude/projects/\(collidingEncoded)/s.jsonl", "x")
+        fs.seedDirectory(dashPath)
+        fs.seedDirectory(underscorePath)
+
+        let report = try service(fs).delete(
+            selection: select(collidingEncoded), operation: .entireProject, dryRun: false
+        )
+
+        // Nothing deleted; both colliding entries reported as skipped.
+        XCTAssertTrue(report.deletedProjects.isEmpty)
+        XCTAssertEqual(report.skippedProjects.count, 2)
+        XCTAssertEqual(Set(report.skippedProjects.map(\.path)), [dashPath, underscorePath])
+        for skipped in report.skippedProjects {
+            XCTAssertTrue(skipped.reason.contains("ambiguous"))
+        }
+
+        // Neither folder nor the shared history dir nor either key was touched.
+        XCTAssertFalse(fs.journal.contains { if case .removeItem = $0 { return true }; return false })
+        XCTAssertTrue(fs.exists(dashPath))
+        XCTAssertTrue(fs.exists(underscorePath))
+        XCTAssertTrue(fs.exists(paths.projectDir(encoded: collidingEncoded)))
+        let doc = try JSONValue(data: fs.readData(paths.claudeJSON))
+        let projects = try XCTUnwrap(doc["projects"]?.objectValue)
+        XCTAssertNotNil(projects[dashPath])
+        XCTAssertNotNil(projects[underscorePath])
+    }
+
     // MARK: - Journal: exact removed set, never scans home
 
     func testRemovedPathSetMatchesAndNeverScansHome() throws {

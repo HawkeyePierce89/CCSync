@@ -140,13 +140,20 @@ private struct DeleteReportView: View {
                         )
                         .lineLimit(1).truncationMode(.middle)
                     }
-                    ForEach(report.skippedProjects, id: \.encodedName) { skipped in
+                    // Skipped rows are not unique by `encodedName`: an ambiguous
+                    // encoded name yields one skip per colliding project path, all
+                    // sharing that name. Index them so the duplicate IDs don't drop
+                    // or misrender a row (same reason as the warnings below).
+                    ForEach(Array(report.skippedProjects.enumerated()), id: \.offset) { _, skipped in
                         Label("\(rowTitle(skipped.path, skipped.encodedName)) — \(skipped.reason)",
                               systemImage: "minus.circle")
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
-                    ForEach(report.warnings, id: \.self) { warning in
+                    // Warnings are not unique (two missing/symlink folders yield
+                    // identical strings), so index them rather than using the text as
+                    // the identity — duplicate IDs would drop or misrender rows.
+                    ForEach(Array(report.warnings.enumerated()), id: \.offset) { _, warning in
                         Label(warning, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
                             .fixedSize(horizontal: false, vertical: true)
@@ -206,6 +213,15 @@ final class ManageViewModel: ObservableObject {
               + "folder on disk. It cannot be undone — no snapshot is taken."
             : "This permanently deletes the selected projects' Claude data (history "
               + "and settings). It cannot be undone — no snapshot is taken."]
+        // Enumerate the exact targets so the user can verify them before an
+        // irreversible, unsnapshotted delete — a bare count is not enough.
+        if !selectedIdentities.isEmpty {
+            let shown = selectedIdentities.prefix(12)
+            var listing = shown.map { "• \($0)" }.joined(separator: "\n")
+            let extra = selectedIdentities.count - shown.count
+            if extra > 0 { listing += "\n• …and \(extra) more" }
+            lines.append(listing)
+        }
         if operation == .entireProject, let managePlan, let tree {
             let split = managePlan.deletionSplit(selection: tree.resolvedSelection())
             lines.append("\(split.folders) project folder"
@@ -213,6 +229,14 @@ final class ManageViewModel: ObservableObject {
                 + "\(split.dataOnly) will have Claude data cleaned only.")
         }
         return lines.joined(separator: "\n\n")
+    }
+
+    /// The selected project rows as user-facing identities (path, or the encoded
+    /// directory name for an orphan with no path), in tree order.
+    private var selectedIdentities: [String] {
+        (tree?.projects ?? [])
+            .filter(\.isSelected)
+            .map { $0.path.isEmpty ? $0.encodedName : $0.path }
     }
 
     /// The Core folder caption for a project row (`nil` for a deletable/orphan row).

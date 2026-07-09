@@ -140,7 +140,12 @@ The machine-readable seam shared by CLI and GUI:
   data removed, nothing to delete for the folder`; an orphan under "entirely" degenerates to
   data-only silently. `folderRemoved` is never `true` unless the folder was actually removed;
   a project where nothing was present is reported under `skippedProjects` with reason
-  `nothing to delete — already gone`. `dryRun` computes the **identical** `DeleteReport`
+  `nothing to delete — already gone`. Because `path → encodedName` is lossy (every
+  non-alphanumeric collapses to `-`), two distinct project paths can share one encoded name;
+  since `Selection` carries only `encodedName`, `DeleteService` **refuses** any selected name
+  that maps to more than one inventory entry (`skippedProjects`, reason
+  `ambiguous encoded name — …`, nothing removed) rather than over-deleting both folders and
+  keys from a single-project selection. `dryRun` computes the **identical** `DeleteReport`
   (dryRun / deletedProjects with `removedPaths` / skippedProjects / warnings, mirroring
   `RestoreReport`) but performs no `removeItem`/`writeData` — the would-be report equals the
   real run; the mutated `~/.claude.json` is written once at the end only when a key was
