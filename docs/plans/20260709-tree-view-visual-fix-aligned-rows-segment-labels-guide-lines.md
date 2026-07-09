@@ -67,7 +67,7 @@ Presentation-only rework of the grouped project tree renderer. Three visual defe
 **Files:**
 - Modify: `CLAUDE.md` (only if the grouped-tree contract wording needs it)
 
-- [ ] Update the "Grouped project tree" contract paragraph in `CLAUDE.md` to note `Leaf` now also carries `name` (last path segment, display-only, still no `isSelected`) and that the shared view renders a flattened, guide-lined, leading-aligned tree showing segment labels with the full path as a tooltip.
+- [x] Update the "Grouped project tree" contract paragraph in `CLAUDE.md` to note `Leaf` now also carries `name` (last path segment, display-only, still no `isSelected`) and that the shared view renders a flattened, guide-lined, leading-aligned tree showing segment labels with the full path as a tooltip.
 
 ## Post-Completion (manual, not agent-automatable)
 

@@ -81,7 +81,8 @@ The machine-readable seam shared by CLI and GUI:
   (`ProjectPathTree.swift`) derives a collapsible, path-grouped view of the flat
   `SelectionTree.Node` list for both GUI screens. It sits *between* the `SelectionTree` and
   the SwiftUI renderer and deliberately carries **no selection state** — `Leaf` holds only
-  display fields (`path`, `encodedName`, `incomplete`, `incompleteReason`,
+  display fields (`path`, `encodedName`, `name` — the last path segment (display label);
+  empty for orphans, which render `encodedName` instead — `incomplete`, `incompleteReason`,
   `incompleteSummary` — same wording as `SelectionTree.Node` — and `isSelectable`), never
   `isSelected`, so a renderer cannot bind a checkbox to stale data. All selection
   reads/writes still go through the live `SelectionTree` via `projectBinding` (per leaf) and
@@ -104,8 +105,15 @@ The machine-readable seam shared by CLI and GUI:
   `descendantEncodedNames`, so neither is silently hidden while `SelectionTree` still holds
   it selectable. **Ignore-unknown-names** — `folderState` skips encoded names not present in
   the tree (an all-unknown list derives `.off`) and `setFolder`/`setProject` no-op on them,
-  since the derived name list may in theory lag the live tree. The archive format, CLI, and
-  `resolvedSelection()` are untouched.
+  since the derived name list may in theory lag the live tree. **Rendering** — the shared
+  `ProjectSelectionTreeView` flattens the `ProjectPathTree` (respecting the expansion map)
+  into leading-aligned, full-width rows with classic tree-view guide lines, and shows each
+  leaf's `name` (last path segment) with the full `path` as a `.help(_:)` tooltip; there is
+  no `DisclosureGroup` staircase or middle-truncated absolute path per leaf. Selection
+  semantics are verbatim (same `projectBinding`/`folderState`/`toggleFolder`, tri-state
+  folder `Button`, leaf `Toggle`, a separately-labelled chevron `Button`, gating, orphan
+  section, and Manage captions). The archive format, CLI, and `resolvedSelection()` are
+  untouched.
 - **Delete (Manage tab / `ccsync delete`):** a permanent, unsnapshotted removal path that
   reuses the same selection seam. `FileSystem.removeItem(_:)` recursively removes a file or
   a directory subtree; like `FileManager.removeItem` it does not follow a symlink target
