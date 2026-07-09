@@ -163,7 +163,10 @@ flat list of absolute paths: projects sharing a parent directory are gathered un
 expandable folders (single-child folder chains are compacted into one row, e.g.
 `/Users/alice/git`), and each folder carries a tri-state checkbox — checked when all
 projects under it are selected, a dash when only some are, empty when none — that toggles its
-whole subtree at once. Projects are checked by default. Any **orphaned history directory** (a
+whole subtree at once. Each project row shows just its folder name (the last path segment)
+rather than its full absolute path, keeping rows short and leading-aligned, with the full
+path available as a hover tooltip; nesting depth is drawn with classic tree-view guide lines.
+Projects are checked by default. Any **orphaned history directory** (a
 `projects/<encoded>/` folder with no matching entry in `~/.claude.json`) is listed separately
 under a **"History only — no project entry"** section after the tree — greyed out and
 non-selectable on Backup, still toggleable on Restore. This is purely a display change: the

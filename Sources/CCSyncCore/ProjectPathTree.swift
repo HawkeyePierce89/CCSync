@@ -70,6 +70,9 @@ public struct ProjectPathTree: Equatable, Sendable {
     public struct Leaf: Equatable, Sendable {
         public var path: String
         public var encodedName: String
+        /// The last path segment (display label); empty for orphans, which render
+        /// `encodedName` instead.
+        public var name: String
         public var incomplete: Bool
         public var incompleteReason: String?
         public var isSelectable: Bool
@@ -79,6 +82,7 @@ public struct ProjectPathTree: Equatable, Sendable {
         public init(
             path: String,
             encodedName: String,
+            name: String,
             incomplete: Bool,
             incompleteReason: String?,
             isSelectable: Bool,
@@ -86,6 +90,7 @@ public struct ProjectPathTree: Equatable, Sendable {
         ) {
             self.path = path
             self.encodedName = encodedName
+            self.name = name
             self.incomplete = incomplete
             self.incompleteReason = incompleteReason
             self.isSelectable = isSelectable
@@ -209,9 +214,14 @@ public struct ProjectPathTree: Equatable, Sendable {
     }
 
     private static func makeLeaf(_ node: SelectionTree.Node) -> Leaf {
+        // `segments.last ?? ""` yields "" for every orphan source — both the empty path
+        // and a degenerate path like "/" (which splits to no segments) — so the documented
+        // "empty for orphans, render `encodedName` instead" contract holds for both, not
+        // just the empty-string path.
         Leaf(
             path: node.path,
             encodedName: node.encodedName,
+            name: segments(node.path).last ?? "",
             incomplete: node.incomplete,
             incompleteReason: node.incompleteReason,
             isSelectable: node.isSelectable,
