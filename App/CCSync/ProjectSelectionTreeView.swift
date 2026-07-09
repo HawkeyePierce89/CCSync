@@ -40,14 +40,14 @@ struct ProjectSelectionTreeView: View {
     /// One entry per visible (expanded-into) row, in render order.
     private struct RenderRow: Identifiable {
         let row: ProjectPathTree.Row
-        /// Nesting depth (0 = root). Equals `prefixLines.count`.
-        let depth: Int
         /// Whether this row is the last among its immediate siblings (corner vs. T-junction).
         let isLastSibling: Bool
         /// Per-ancestor continuation flags: `prefixLines[i]` is `true` when the ancestor at
         /// depth `i` still has a following sibling, so a vertical guide line passes through
-        /// that column. Length == `depth`; the final entry only guides deeper descendants.
+        /// that column. Length == nesting depth; the final entry only guides deeper descendants.
         let prefixLines: [Bool]
+        /// Nesting depth (0 = root), derived from `prefixLines` so the two can't drift.
+        var depth: Int { prefixLines.count }
         /// Forwarded verbatim from the underlying node so the `ForEach` never keys on offsets.
         var id: String { row.id }
     }
@@ -90,7 +90,7 @@ struct ProjectSelectionTreeView: View {
         func walk(_ rows: [ProjectPathTree.Row], prefix: [Bool]) {
             for (index, row) in rows.enumerated() {
                 let isLast = index == rows.count - 1
-                out.append(RenderRow(row: row, depth: prefix.count, isLastSibling: isLast, prefixLines: prefix))
+                out.append(RenderRow(row: row, isLastSibling: isLast, prefixLines: prefix))
                 if case .folder(let folder) = row, isExpanded(folder.pathPrefix) {
                     walk(folder.children, prefix: prefix + [!isLast])
                 }
@@ -278,7 +278,7 @@ private struct LeafRow: View {
     var body: some View {
         Toggle(isOn: isOn) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(leaf.path.isEmpty ? leaf.encodedName : leaf.name)
+                Text(leaf.name.isEmpty ? leaf.encodedName : leaf.name)
                     .lineLimit(1).truncationMode(.middle)
                     .foregroundStyle(leaf.isSelectable ? .primary : .secondary)
                     .help(leaf.path)

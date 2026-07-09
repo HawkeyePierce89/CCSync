@@ -279,6 +279,9 @@ final class ProjectPathTreeTests: XCTestCase {
         ])
 
         XCTAssertEqual(tree.orphans.map(\.encodedName), ["-slash"])
+        // A degenerate "/" path is an orphan, so its `name` must be empty (the renderer
+        // falls back to `encodedName`) — not the raw "/" segment.
+        XCTAssertEqual(tree.orphans.first?.name, "")
         XCTAssertEqual(tree.roots.count, 1)
         XCTAssertEqual(folder(tree.roots.first).label, "/Users/a")
     }

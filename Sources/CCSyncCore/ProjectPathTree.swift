@@ -214,10 +214,14 @@ public struct ProjectPathTree: Equatable, Sendable {
     }
 
     private static func makeLeaf(_ node: SelectionTree.Node) -> Leaf {
+        // `segments.last ?? ""` yields "" for every orphan source — both the empty path
+        // and a degenerate path like "/" (which splits to no segments) — so the documented
+        // "empty for orphans, render `encodedName` instead" contract holds for both, not
+        // just the empty-string path.
         Leaf(
             path: node.path,
             encodedName: node.encodedName,
-            name: node.path.isEmpty ? "" : lastSegment(node.path),
+            name: segments(node.path).last ?? "",
             incomplete: node.incomplete,
             incompleteReason: node.incompleteReason,
             isSelectable: node.isSelectable,
