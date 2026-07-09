@@ -42,6 +42,10 @@ final class InMemoryFileSystem: FileSystem {
     /// mapped error so a test can simulate a permission-style failure.
     var removeItemErrors: [String: Error] = [:]
 
+    /// Injectable fault hook: keyed by path, forces `writeData` to throw the mapped
+    /// error so a test can simulate a write failure (the write-back stop condition).
+    var writeDataErrors: [String: Error] = [:]
+
     init() {}
 
     // MARK: - Fixture helpers
@@ -123,6 +127,9 @@ final class InMemoryFileSystem: FileSystem {
 
     func writeData(_ data: Data, to path: String) throws {
         journal.append(.writeData(path))
+        if let error = writeDataErrors[path] ?? writeDataErrors[normalise(path)] {
+            throw error
+        }
         files[path] = data
         seedParentDirectories(of: path)
     }

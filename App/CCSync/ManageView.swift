@@ -84,7 +84,7 @@ struct ManageView: View {
     }
 
     private var operationRow: some View {
-        Picker("", selection: model.operationBinding) {
+        Picker("", selection: $model.operation) {
             Text("Delete Claude data").tag(DeleteOperation.claudeDataOnly)
             Text("Delete project entirely").tag(DeleteOperation.entireProject)
         }
@@ -197,10 +197,6 @@ final class ManageViewModel: ObservableObject {
 
     /// The Delete button is live only with a loaded plan and at least one project on.
     var hasSelection: Bool { tree != nil && selectionCount > 0 }
-
-    var operationBinding: Binding<DeleteOperation> {
-        Binding(get: { self.operation }, set: { self.operation = $0 })
-    }
 
     /// The confirmation modal copy: states the permanence and, for "entirely", the
     /// `ManagePlan.deletionSplit` N/M counts.

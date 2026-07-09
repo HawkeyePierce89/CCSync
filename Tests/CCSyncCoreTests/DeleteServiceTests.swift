@@ -250,6 +250,79 @@ final class DeleteServiceTests: XCTestCase {
         }
     }
 
+    func testWriteBackFailureThrowsDeleteErrorAfterDataRemoved() throws {
+        struct Boom: Error {}
+        let fs = twoProjects()
+        // The data removal succeeds; the end-of-run ~/.claude.json write-back fails.
+        fs.writeDataErrors[paths.claudeJSON] = Boom()
+
+        XCTAssertThrowsError(
+            try service(fs).delete(selection: select(appEncoded), operation: .claudeDataOnly, dryRun: false)
+        ) { error in
+            XCTAssertEqual(error as? DeleteError, .writeFailed(paths.claudeJSON))
+        }
+
+        // No rollback: the already-removed Claude data stays gone even though the
+        // write-back failed.
+        XCTAssertFalse(fs.exists(paths.projectDir(encoded: appEncoded)))
+        XCTAssertFalse(fs.exists(paths.fileHistoryDir(uuid: appUUID)))
+    }
+
+    // MARK: - Raced-away path is advisory, not fatal
+
+    func testRacedAwayDataPathWarnsAndContinues() throws {
+        let fs = twoProjects()
+        // One discovered data path vanishes between discovery and removal.
+        let raced = paths.fileHistoryDir(uuid: appUUID)
+        fs.removeItemErrors[raced] = FileSystemError.notFound(raced)
+
+        let report = try service(fs).delete(
+            selection: select(appEncoded), operation: .claudeDataOnly, dryRun: false
+        )
+
+        // The run completes: advisory warning, project still reported deleted.
+        XCTAssertEqual(report.warnings, ["path already gone, skipped: \(raced)"])
+        XCTAssertEqual(report.deletedProjects.count, 1)
+        XCTAssertTrue(report.skippedProjects.isEmpty)
+
+        // The remaining data paths and the JSON key are still removed.
+        XCTAssertFalse(fs.exists(paths.projectDir(encoded: appEncoded)))
+        XCTAssertFalse(fs.exists(KnownPaths.join(paths.todosDir, "\(appUUID).json")))
+        let doc = try JSONValue(data: fs.readData(paths.claudeJSON))
+        XCTAssertNil(doc["projects"]?.objectValue?[appPath])
+    }
+
+    // MARK: - Multiple projects in one run (batched write-back)
+
+    func testDeletingTwoProjectsRemovesBothKeysWithOneWrite() throws {
+        let fs = twoProjects()
+
+        let report = try service(fs).delete(
+            selection: select(appEncoded, libEncoded), operation: .entireProject, dryRun: false
+        )
+
+        XCTAssertEqual(report.deletedProjects.count, 2)
+        XCTAssertTrue(report.warnings.isEmpty)
+        XCTAssertTrue(report.skippedProjects.isEmpty)
+
+        // Both projects' data and folders are gone.
+        XCTAssertFalse(fs.exists(paths.projectDir(encoded: appEncoded)))
+        XCTAssertFalse(fs.exists(paths.projectDir(encoded: libEncoded)))
+        XCTAssertFalse(fs.exists(appPath))
+        XCTAssertFalse(fs.exists(libPath))
+
+        // Both keys removed; the unknown top-level key survives.
+        let doc = try JSONValue(data: fs.readData(paths.claudeJSON))
+        let projects = try XCTUnwrap(doc["projects"]?.objectValue)
+        XCTAssertNil(projects[appPath])
+        XCTAssertNil(projects[libPath])
+        XCTAssertEqual(doc["mcpServers"], .object(["git": .object([:])]))
+
+        // The batched write-back touches ~/.claude.json exactly once.
+        let writes = fs.journal.filter { $0 == .writeData(paths.claudeJSON) }
+        XCTAssertEqual(writes.count, 1)
+    }
+
     // MARK: - Journal: exact removed set, never scans home
 
     func testRemovedPathSetMatchesAndNeverScansHome() throws {

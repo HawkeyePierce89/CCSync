@@ -172,6 +172,33 @@ final class DeleteCLITests: XCTestCase {
         XCTAssertEqual(deleted.first?["path"], .string(""))
     }
 
+    // MARK: - Folder-guard warnings reach stderr and the JSON report
+
+    func testEntirelySymlinkFolderWarningReachesStderrAndJSON() throws {
+        let linked = "/Users/alice/git/Linked"
+        let encoded = ProjectPathEncoding.encode(linked)
+        let fs = InMemoryFileSystem()
+        fs.seedFile("\(home)/.claude.json", #"{"projects":{"\#(linked)":{}}}"#)
+        fs.seedFile("\(home)/.claude/projects/\(encoded)/s.jsonl", "x")
+        fs.seedSymlink(linked)
+
+        let result = run(
+            ["delete", "--project", linked, "--with-project-folder", "--yes"], fs: fs
+        )
+
+        XCTAssertEqual(result.code, 0, result.stderr)
+        let warning = "project path is a symlink — folder not removed, Claude data removed"
+
+        // The verbatim guard warning is emitted on stderr with the CLI prefix.
+        XCTAssertTrue(result.stderr.contains("ccsync: warning: \(warning)"))
+
+        // …and appears in the printed JSON report's warnings array.
+        let printed = try JSONValue(data: Data(result.stdout.utf8))
+        XCTAssertEqual(printed["warnings"]?.arrayValue, [.string(warning)])
+        let deleted = try XCTUnwrap(printed["deletedProjects"]?.arrayValue?.first)
+        XCTAssertEqual(deleted["folderRemoved"], .bool(false))
+    }
+
     // MARK: - No selector is a usage error
 
     func testNoSelectorIsUsageError() throws {

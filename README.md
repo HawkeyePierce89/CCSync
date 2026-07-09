@@ -176,9 +176,10 @@ gone — Claude data only", "unsafe path — Claude data only", "symlink — Cla
 A segmented picker chooses the operation — **Delete Claude data** or **Delete project
 entirely** — and the destructive **Delete…** button is disabled until at least one project
 is selected. It always opens an **irreversibility confirmation modal** first: the modal
-states the deletion is permanent with no snapshot and no undo, names the selected projects
-and the chosen operation, and — for "entirely" — shows the split "N project folders will be
-deleted, M will have Claude data cleaned only." Only on confirm does the deletion run; the
+states the deletion is permanent with no snapshot and no undo, shows the count of selected
+projects and describes the chosen operation, and — for "entirely" — shows the split "N
+project folders will be deleted, M will have Claude data cleaned only." Only on confirm does
+the deletion run; the
 result (deleted projects with a folder-removed indicator, skipped projects with reasons, and
 warnings) is rendered like the Restore report, and the list reloads so deleted projects
 disappear.
