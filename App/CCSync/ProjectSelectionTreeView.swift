@@ -138,7 +138,10 @@ struct ProjectSelectionTreeView: View {
         var kinds: [GuideCell.Kind] = []
         for col in 0..<render.depth {
             if col < render.depth - 1 {
-                kinds.append(render.prefixLines[col] ? .vertical : .empty)
+                // Ancestor column `col` sits at the depth-(col+1) ancestor's connector, so
+                // it reflects that ancestor's sibling continuation. prefixLines[0] is the
+                // root's flag, which maps to no visible column (roots draw none), hence +1.
+                kinds.append(render.prefixLines[col + 1] ? .vertical : .empty)
             } else {
                 kinds.append(render.isLastSibling ? .corner : .teeJunction)
             }
