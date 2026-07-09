@@ -36,6 +36,16 @@ public protocol FileSystem {
 
     /// Create a directory at `path`, including intermediate directories.
     func createDirectory(_ path: String) throws
+
+    /// Remove the item at `path`. If it is a directory, its entire subtree is
+    /// removed recursively; if it is a file it is deleted.
+    ///
+    /// Like `FileManager.removeItem`, a symbolic link is *not* followed — only
+    /// the link entry itself is removed and its target is left untouched.
+    ///
+    /// Throws `FileSystemError.notFound(path)` when nothing exists at `path`, so
+    /// callers can treat a missing item as skip+warn rather than a hard crash.
+    func removeItem(_ path: String) throws
 }
 
 public extension FileSystem {
@@ -118,5 +128,15 @@ public struct RealFileSystem: FileSystem {
             at: URL(fileURLWithPath: path),
             withIntermediateDirectories: true
         )
+    }
+
+    public func removeItem(_ path: String) throws {
+        // `fileExists` follows symlinks, but a symlink counts as an existing
+        // entry for our purposes: `removeItem(atPath:)` deletes the link itself
+        // without following it, matching the documented contract.
+        guard fileManager.fileExists(atPath: path) || isSymlink(path) else {
+            throw FileSystemError.notFound(path)
+        }
+        try fileManager.removeItem(atPath: path)
     }
 }

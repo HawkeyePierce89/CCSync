@@ -100,23 +100,23 @@ Files:
 - Modify: `Tests/CCSyncCoreTests/Support/InMemoryFileSystem.swift`
 - Create: `Tests/CCSyncCoreTests/FileSystemRemoveItemTests.swift`
 
-- [ ] Add `func removeItem(_ path: String) throws` to the `FileSystem` protocol
+- [x] Add `func removeItem(_ path: String) throws` to the `FileSystem` protocol
       (recursive: removes a file, or a directory and its entire subtree). Document that,
       like `FileManager.removeItem`, a symlink target is not followed — only the link
       entry is removed — and that removing a missing path throws
       `FileSystemError.notFound(path)`.
-- [ ] Implement in `RealFileSystem` wrapping `FileManager.removeItem(atPath:)`, throwing
+- [x] Implement in `RealFileSystem` wrapping `FileManager.removeItem(atPath:)`, throwing
       `FileSystemError.notFound` when the path does not exist (so callers can treat
       missing as skip+warn rather than a hard crash).
-- [ ] Implement in `InMemoryFileSystem`: add `.removeItem(String)` to the `Access` enum
+- [x] Implement in `InMemoryFileSystem`: add `.removeItem(String)` to the `Access` enum
       (+ its `path`), journal it, remove the exact file and every file/directory whose
       path is `path` or has prefix `path + "/"`; throw `notFound` when nothing matches.
       Add an injectable fault hook (e.g. `var removeItemErrors: [String: Error]`) so a
       test can force a permission-style failure at a specific path.
-- [ ] Write tests: file removal, recursive directory removal (journal shows a single
+- [x] Write tests: file removal, recursive directory removal (journal shows a single
       `.removeItem` for the root and the subtree is gone), removing a missing path
       throws, the fault hook throws, and unrelated paths are untouched.
-- [ ] Run `swift test` — must pass before Task 2.
+- [x] Run `swift test` — must pass before Task 2.
 
 ### Task 2: ManagePlan (folder status) + Manage selection-tree builder
 
