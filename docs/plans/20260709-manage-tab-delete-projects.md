@@ -127,29 +127,29 @@ Files:
 - Create: `Tests/CCSyncCoreTests/ManagePlanTests.swift`
 - Create: `Tests/CCSyncCoreTests/ManageSelectionTreeTests.swift`
 
-- [ ] Add `ManagePlan(fileSystem:paths:)`: wraps a `BackupPlan` and computes, per
+- [x] Add `ManagePlan(fileSystem:paths:)`: wraps a `BackupPlan` and computes, per
       project, a `FolderStatus` (`deletable` / `unsafePath` / `missing` / `symlink` /
       `orphan`) keyed by `encodedName`. Status derivation: orphan when `path.isEmpty`;
       `unsafePath` when the path is `/` or normalizes to the home directory; `symlink`
       when the entry at the path is a symlink; `missing` when no directory exists there;
       else `deletable`. Existence checks go through `FileSystem` on the explicit project
       paths only (invariant #1 — no scanning).
-- [ ] Add `ManagePlan.folderCaption(for encodedName:) -> String?` — the single Core
+- [x] Add `ManagePlan.folderCaption(for encodedName:) -> String?` — the single Core
       wording for the row caption (`nil` for `deletable`; e.g. "folder already gone —
       Claude data only" for `missing`, "unsafe path — Claude data only" for `unsafePath`,
       "symlink — Claude data only" for `symlink`; orphans keep their existing
       `incompleteSummary`, no extra caption).
-- [ ] Add `ManagePlan.deletionSplit(selection:) -> (folders: Int, dataOnly: Int)` for the
+- [x] Add `ManagePlan.deletionSplit(selection:) -> (folders: Int, dataOnly: Int)` for the
       modal counts (selected projects whose folder will be removed vs. data-only).
-- [ ] Add `SelectionTree(managePlan:)`: `globalSelected = false` (nothing global is
+- [x] Add `SelectionTree(managePlan:)`: `globalSelected = false` (nothing global is
       deletable), `projectsMasterSelected = true` (leaves are live/enabled), every
       project node `isSelected = false` and `isSelectable = true` — including orphans
       (`path.isEmpty`). This is the inverse of `init(plan: BackupPlan)`, which leaves
       projects on and orphans non-selectable.
-- [ ] Confirm `resolvedSelection()`, `setProject`, `folderState`, and `setFolder` need no
+- [x] Confirm `resolvedSelection()`, `setProject`, `folderState`, and `setFolder` need no
       change: with every node selectable and default-off, a fresh Manage tree resolves to
       an empty `projectEncodedNames`, and folder tri-state derives `.off`.
-- [ ] Write tests: folder-status derivation for all five cases (fixture home with a
+- [x] Write tests: folder-status derivation for all five cases (fixture home with a
       normal project, a missing folder, a symlinked path, a `/`/home path, an orphan);
       caption wording per status; `deletionSplit` counts for a mixed selection; default
       Manage tree has nothing selected (`resolvedSelection().projectEncodedNames.isEmpty`);
@@ -158,7 +158,7 @@ Files:
       `ProjectPathTree(nodes:)` over a Manage tree keeps orphans in `orphans` and marks
       all leaves `isSelectable`; the journal shows no `listDirectory(home)` and only
       explicit project paths probed.
-- [ ] Run `swift test` — must pass before Task 3.
+- [x] Run `swift test` — must pass before Task 3.
 
 ### Task 3: Shared artifact discovery, DeleteReport, locator, and ~/.claude.json key removal
 
