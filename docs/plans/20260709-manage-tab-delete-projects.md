@@ -172,35 +172,35 @@ Files:
   key removal
 - Create: `Tests/CCSyncCoreTests/ProjectDataLocatorTests.swift`
 
-- [ ] Extract the per-session artifact discovery out of `BackupCollector` into one shared
+- [x] Extract the per-session artifact discovery out of `BackupCollector` into one shared
       internal helper (list `projects/<encoded>/` for non-dir, non-symlink `.jsonl`
       stems; map each stem to `file-history/<stem>/`, `session-env/<stem>/`, and matching
       `todos/` entries; only listable, non-symlink roots are entered — same no-follow
       discipline). `BackupCollector` and `ProjectDataLocator` both call it — one
       implementation, no drift.
-- [ ] Define `DeleteOperation` enum: `.claudeDataOnly`, `.entireProject`.
-- [ ] Define `DeleteReport` (Equatable, Sendable): `dryRun: Bool`;
+- [x] Define `DeleteOperation` enum: `.claudeDataOnly`, `.entireProject`.
+- [x] Define `DeleteReport` (Equatable, Sendable): `dryRun: Bool`;
       `deletedProjects: [DeletedProject]` where `DeletedProject` = `path`, `encodedName`,
       `folderRemoved: Bool`, `removedPaths: [String]` (the exact paths targeted);
       `skippedProjects: [SkippedProject]` = `path`, `encodedName`, `reason`;
       `warnings: [String]`. Mirror `RestoreReport`'s shape/naming so the CLI JSON
       serialisation is symmetric.
-- [ ] Add `ProjectDataLocator` (Core): given `fileSystem`, `paths`, and an encoded
+- [x] Add `ProjectDataLocator` (Core): given `fileSystem`, `paths`, and an encoded
       project name, return the ordered set of removable Claude-data paths — the
       `projects/<encoded>/` directory plus the linked per-session artifact paths from the
       shared helper. It reads no file contents and never lists `home`.
-- [ ] Add a surgical `~/.claude.json` key remover (same discipline as `JSONMerge`:
+- [x] Add a surgical `~/.claude.json` key remover (same discipline as `JSONMerge`:
       generic `JSONValue` in, remove exactly `projects[<path>]`, every other
       key/project/unknown-future key preserved) returning the new document and whether
       the key existed.
-- [ ] Write tests: the locator finds the history dir + only the artifact subdirs/files
+- [x] Write tests: the locator finds the history dir + only the artifact subdirs/files
       belonging to the project's sessions (never another project's), skips symlinked
       roots, and lists only `KnownPaths`; an **equivalence test** — on one fixture home,
       the locator's path set matches exactly what `BackupCollector` collects for the same
       project; the key remover removes exactly one project entry, is a no-op (unchanged
       doc, `existed == false`) when the path/`projects` object is absent, and leaves
       sibling projects and unknown top-level keys intact.
-- [ ] Run `swift test` — must pass before Task 4.
+- [x] Run `swift test` — must pass before Task 4.
 
 ### Task 4: DeleteService orchestration
 

@@ -87,7 +87,7 @@ public struct BackupCollector {
         // `BackupPlan` via `ProjectInventory`; the collector only adds the payload,
         // reading sessions solely when the inventory saw a history directory.
         let inventory = try ProjectInventory.list(claudeJSON: claudeJSON, fileSystem: fs, paths: paths)
-        let todoNames = listTodos()
+        let todoNames = SessionArtifactDiscovery(fs: fs, paths: paths).listTodos()
 
         var entries: [ProjectEntry] = []
         for entry in inventory {
@@ -126,37 +126,33 @@ public struct BackupCollector {
     // MARK: - Sessions & linked history
 
     private func collectSessions(encoded: String, todoNames: [String]) throws -> [SessionArtifacts] {
-        let dir = paths.projectDir(encoded: encoded)
-        guard isListableDirectory(dir) else { return [] }
+        // Discovery of *which* paths belong to the project's sessions is shared
+        // with `ProjectDataLocator`; the collector only reads the discovered paths.
+        let discovery = SessionArtifactDiscovery(fs: fs, paths: paths)
 
         var sessions: [SessionArtifacts] = []
-        for name in try fs.listDirectory(dir).sorted() where name.hasSuffix(".jsonl") {
-            let full = KnownPaths.join(dir, name)
-            guard !fs.isDirectory(full), !fs.isSymlink(full) else { continue }
-
-            let stem = String(name.dropLast(".jsonl".count))
-            let isSubAgent = stem.hasPrefix("agent-")
+        for session in try discovery.sessions(encoded: encoded, todoNames: todoNames) {
+            var todos: [FileBlob] = []
+            for todoPath in session.todoFiles {
+                todos.append(FileBlob(
+                    relativePath: (todoPath as NSString).lastPathComponent,
+                    data: try fs.readData(todoPath)
+                ))
+            }
 
             sessions.append(SessionArtifacts(
-                sessionID: stem,
-                isSubAgent: isSubAgent,
-                transcript: FileBlob(relativePath: name, data: try fs.readData(full)),
-                fileHistory: try collectHistoryDir(paths.fileHistoryDir(uuid: stem)),
-                sessionEnv: try collectHistoryDir(paths.sessionEnvDir(uuid: stem)),
-                todos: try collectTodos(sessionID: stem, todoNames: todoNames)
+                sessionID: session.sessionID,
+                isSubAgent: session.isSubAgent,
+                transcript: FileBlob(
+                    relativePath: (session.transcriptPath as NSString).lastPathComponent,
+                    data: try fs.readData(session.transcriptPath)
+                ),
+                fileHistory: try session.fileHistoryDir.map { try collectFiles(under: $0) } ?? [],
+                sessionEnv: try session.sessionEnvDir.map { try collectFiles(under: $0) } ?? [],
+                todos: todos
             ))
         }
         return sessions
-    }
-
-    private func collectHistoryDir(_ dir: String) throws -> [FileBlob] {
-        guard isListableDirectory(dir) else { return [] }
-        return try collectFiles(under: dir)
-    }
-
-    private func listTodos() -> [String] {
-        guard isListableDirectory(paths.todosDir) else { return [] }
-        return (try? fs.listDirectory(paths.todosDir)) ?? []
     }
 
     /// A directory root we are willing to list. `FileSystem.isDirectory` follows
@@ -168,22 +164,6 @@ public struct BackupCollector {
     /// separately in `collectFiles`.
     private func isListableDirectory(_ path: String) -> Bool {
         fs.isDirectory(path) && !fs.isSymlink(path)
-    }
-
-    private func collectTodos(sessionID: String, todoNames: [String]) throws -> [FileBlob] {
-        var blobs: [FileBlob] = []
-        for name in todoNames.sorted() where todoMatches(name: name, sessionID: sessionID) {
-            let full = KnownPaths.join(paths.todosDir, name)
-            guard fs.exists(full), !fs.isDirectory(full), !fs.isSymlink(full) else { continue }
-            blobs.append(FileBlob(relativePath: name, data: try fs.readData(full)))
-        }
-        return blobs
-    }
-
-    /// A todos file belongs to a session when it is `<sessionID>.json` or begins
-    /// `<sessionID>-` (the `<sessionId>-agent-<agentId>.json` sub-agent form).
-    private func todoMatches(name: String, sessionID: String) -> Bool {
-        name == "\(sessionID).json" || name.hasPrefix("\(sessionID)-")
     }
 
     // MARK: - Recursive file capture (bounded to a single known directory)
