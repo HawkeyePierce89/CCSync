@@ -24,6 +24,10 @@ struct ProjectSelectionTreeView: View {
     let folderState: ([String]) -> FolderCheckState
     let toggleFolder: ([String], Bool) -> Void
     let projectBinding: (String) -> Binding<Bool>
+    /// Optional extra caption per leaf, keyed by encoded name — the Manage screen's
+    /// Core folder caption ("folder already gone — Claude data only" etc.). Defaults
+    /// to none so Backup and Restore reuse the view unchanged.
+    var leafCaption: (String) -> String? = { _ in nil }
 
     /// Expansion state keyed by row id. Absent id ⇒ expanded (`?? true`).
     @State private var expanded: [String: Bool] = [:]
@@ -38,6 +42,7 @@ struct ProjectSelectionTreeView: View {
                     folderState: folderState,
                     toggleFolder: toggleFolder,
                     projectBinding: projectBinding,
+                    leafCaption: leafCaption,
                     expanded: $expanded
                 )
             }
@@ -52,7 +57,8 @@ struct ProjectSelectionTreeView: View {
                             leaf: leaf,
                             isRunning: isRunning,
                             projectsMasterOn: projectsMasterOn,
-                            isOn: projectBinding(leaf.encodedName)
+                            isOn: projectBinding(leaf.encodedName),
+                            caption: leafCaption(leaf.encodedName)
                         )
                     }
                 }
@@ -70,6 +76,7 @@ private struct TreeRow: View {
     let folderState: ([String]) -> FolderCheckState
     let toggleFolder: ([String], Bool) -> Void
     let projectBinding: (String) -> Binding<Bool>
+    let leafCaption: (String) -> String?
     @Binding var expanded: [String: Bool]
 
     var body: some View {
@@ -84,6 +91,7 @@ private struct TreeRow: View {
                         folderState: folderState,
                         toggleFolder: toggleFolder,
                         projectBinding: projectBinding,
+                        leafCaption: leafCaption,
                         expanded: $expanded
                     )
                     .padding(.leading, 12)
@@ -96,7 +104,8 @@ private struct TreeRow: View {
                 leaf: leaf,
                 isRunning: isRunning,
                 projectsMasterOn: projectsMasterOn,
-                isOn: projectBinding(leaf.encodedName)
+                isOn: projectBinding(leaf.encodedName),
+                caption: leafCaption(leaf.encodedName)
             )
         }
     }
@@ -161,6 +170,9 @@ private struct LeafRow: View {
     let isRunning: Bool
     let projectsMasterOn: Bool
     let isOn: Binding<Bool>
+    /// Manage-only pre-run signal for this project's folder ("… — Claude data only");
+    /// `nil` (and rendered as nothing) on Backup and Restore.
+    var caption: String? = nil
 
     var body: some View {
         Toggle(isOn: isOn) {
@@ -171,6 +183,10 @@ private struct LeafRow: View {
                 if let summary = leaf.incompleteSummary {
                     Text(summary).font(.caption2)
                         .foregroundStyle(leaf.isSelectable ? .orange : .secondary)
+                }
+                if let caption {
+                    Text(caption).font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

@@ -290,33 +290,33 @@ Files:
 - Modify: `App/CCSync/CCSyncApp.swift` (RootView picker → Backup / Restore / Manage)
 - Create: `App/CCSync/ManageView.swift` (view + `ManageViewModel`)
 
-- [ ] Add a `.manage` case to `RootView`'s `Tab` enum and a third segmented option;
+- [x] Add a `.manage` case to `RootView`'s `Tab` enum and a third segmented option;
       render `ManageView()` for it. Switching tabs must not reset the others (each view
       owns its `@StateObject`, as today).
-- [ ] `ManageViewModel` mirrors `BackupViewModel`: `loadPlanIfNeeded()`/`reloadPlan()`
+- [x] `ManageViewModel` mirrors `BackupViewModel`: `loadPlanIfNeeded()`/`reloadPlan()`
       building `SelectionTree(managePlan: ManagePlan(...))` off the main thread;
       `projectTree`, `folderState`, `toggleFolder`, `projectBinding` forwarding to Core
       (no global toggle, no visible master toggle — pass `projectsMasterOn: true` to the
       reused `ProjectSelectionTreeView`); a `folderCaption(_ encodedName:)` accessor
       forwarding to `ManagePlan.folderCaption`. Publish `operation: DeleteOperation`
       (default `.claudeDataOnly`), `isRunning`, and `report: DeleteReport?`.
-- [ ] View: the reused grouped tree with all checkboxes off, each row additionally
+- [x] View: the reused grouped tree with all checkboxes off, each row additionally
       showing the Core folder caption when non-`nil` (pre-run signal: "folder already
       gone — Claude data only" etc.); a segmented operation picker ("Delete Claude data"
       / "Delete project entirely"); a destructive-styled "Delete…" button disabled while
       `isRunning` or `resolvedSelection().projectEncodedNames.isEmpty`.
-- [ ] Irreversibility modal (`.confirmationDialog`/`.alert` with a `.destructive`-role
+- [x] Irreversibility modal (`.confirmationDialog`/`.alert` with a `.destructive`-role
       confirm button, cancel default): state the deletion is permanent and irreversible
       with no snapshot/undo, enumerate N selected projects and the chosen operation, and
       — for "entirely" — the `ManagePlan.deletionSplit` counts: "N project folders will
       be deleted, M will have Claude data cleaned only." Only on confirm does it run
       `DeleteService.delete(..., dryRun: false)` off the main thread (mirror
       `performBackup`), then publish the `DeleteReport`.
-- [ ] Report view: render `deletedProjects` (with folder-removed indicator),
+- [x] Report view: render `deletedProjects` (with folder-removed indicator),
       `skippedProjects` with reasons, and `warnings`, styled like `RestoreView`'s report.
       After a completed run, call `reloadPlan()` so deleted projects disappear from the
       list.
-- [ ] Build gate: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration
+- [x] Build gate: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync -configuration
       Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build` must succeed.
 
 ### Task 7: Verify acceptance criteria
