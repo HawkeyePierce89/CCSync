@@ -136,6 +136,29 @@ public struct SelectionTree: Equatable, Sendable {
         )
     }
 
+    /// Manage-tab builder: the inverse of `init(plan: BackupPlan)`. Nothing global
+    /// is deletable, so `globalSelected` is `false`; the "Projects" master is on so
+    /// leaves are live/enabled; every project node is default-off but selectable —
+    /// including orphans (`path.isEmpty`), which are deletable Claude data on the
+    /// Manage side even though they are non-selectable for backup. A fresh Manage
+    /// tree therefore resolves to an empty project set until the user picks rows.
+    public init(managePlan: ManagePlan) {
+        self.init(
+            globalSelected: false,
+            projectsMasterSelected: true,
+            projects: managePlan.plan.projects.map {
+                Node(
+                    path: $0.path,
+                    encodedName: $0.encodedName,
+                    incomplete: $0.incomplete,
+                    isSelected: false,
+                    incompleteReason: $0.incompleteReason,
+                    isSelectable: true
+                )
+            }
+        )
+    }
+
     // MARK: - Resolution
 
     /// Collapse the tree into the flat `Selection` the restore engine consumes.

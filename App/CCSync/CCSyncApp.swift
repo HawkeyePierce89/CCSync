@@ -40,10 +40,11 @@ struct CCSyncApp: App {
     private static let aboutWindowID = "about"
 }
 
-/// Two screens — Backup and Restore — behind a tab picker. Both are dumb renderers
-/// over their view models, which forward to Core.
+/// Three screens — Backup, Restore, and Manage — behind a tab picker. All are dumb
+/// renderers over their view models, which forward to Core. Each view owns its
+/// `@StateObject`, so switching tabs never resets another screen's selection.
 struct RootView: View {
-    private enum Tab: Hashable { case backup, restore }
+    private enum Tab: Hashable { case backup, restore, manage }
     @State private var tab: Tab = .backup
 
     var body: some View {
@@ -51,6 +52,7 @@ struct RootView: View {
             Picker("", selection: $tab) {
                 Text("Backup").tag(Tab.backup)
                 Text("Restore").tag(Tab.restore)
+                Text("Manage").tag(Tab.manage)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -63,6 +65,8 @@ struct RootView: View {
                 BackupView()
             case .restore:
                 RestoreView()
+            case .manage:
+                ManageView()
             }
         }
     }

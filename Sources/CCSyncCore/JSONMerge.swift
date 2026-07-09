@@ -27,4 +27,23 @@ public enum JSONMerge {
         }
         return .object(result)
     }
+
+    /// Surgically remove exactly `projects[<path>]` from a generic `~/.claude.json`
+    /// document, mirroring the merge discipline: every other top-level key, every
+    /// sibling project, and any unknown/future key survive untouched. Returns the
+    /// new document and whether the key existed.
+    ///
+    /// A no-op (the document is returned unchanged, `existed == false`) when the
+    /// document is not an object, has no `projects` object, or has no entry for
+    /// `path`.
+    public static func removeProject(_ path: String, from document: JSONValue) -> (document: JSONValue, existed: Bool) {
+        guard case .object(var root) = document,
+              case .object(var projects) = root["projects"] ?? .null,
+              projects[path] != nil else {
+            return (document, false)
+        }
+        projects.removeValue(forKey: path)
+        root["projects"] = .object(projects)
+        return (.object(root), true)
+    }
 }

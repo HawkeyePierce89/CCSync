@@ -15,11 +15,13 @@ final class InMemoryFileSystem: FileSystem {
         case writeData(String)
         case listDirectory(String)
         case createDirectory(String)
+        case removeItem(String)
 
         var path: String {
             switch self {
             case .exists(let p), .isDirectory(let p), .isSymlink(let p), .readData(let p),
-                 .writeData(let p), .listDirectory(let p), .createDirectory(let p):
+                 .writeData(let p), .listDirectory(let p), .createDirectory(let p),
+                 .removeItem(let p):
                 return p
             }
         }
@@ -35,6 +37,14 @@ final class InMemoryFileSystem: FileSystem {
     /// Paths seeded as symbolic links (their targets are not modeled — the
     /// collector must refuse to follow them, so the target is irrelevant).
     private var symlinks: Set<String> = []
+
+    /// Injectable fault hook: keyed by path, forces `removeItem` to throw the
+    /// mapped error so a test can simulate a permission-style failure.
+    var removeItemErrors: [String: Error] = [:]
+
+    /// Injectable fault hook: keyed by path, forces `writeData` to throw the mapped
+    /// error so a test can simulate a write failure (the write-back stop condition).
+    var writeDataErrors: [String: Error] = [:]
 
     init() {}
 
@@ -117,6 +127,9 @@ final class InMemoryFileSystem: FileSystem {
 
     func writeData(_ data: Data, to path: String) throws {
         journal.append(.writeData(path))
+        if let error = writeDataErrors[path] ?? writeDataErrors[normalise(path)] {
+            throw error
+        }
         files[path] = data
         seedParentDirectories(of: path)
     }
@@ -149,5 +162,29 @@ final class InMemoryFileSystem: FileSystem {
         let dir = normalise(path)
         directories.insert(dir)
         seedParentDirectories(of: dir)
+    }
+
+    func removeItem(_ path: String) throws {
+        journal.append(.removeItem(path))
+        if let error = removeItemErrors[path] ?? removeItemErrors[normalise(path)] {
+            throw error
+        }
+        let target = normalise(path)
+        let existsExactFile = files[path] != nil || files[target] != nil
+        let existsDir = directories.contains(target)
+        guard existsExactFile || existsDir else {
+            throw FileSystemError.notFound(path)
+        }
+        // Remove the exact entry plus everything under it (path + "/").
+        let subtreePrefix = target + "/"
+        files = files.filter { key, _ in
+            !(key == path || key == target || key.hasPrefix(subtreePrefix))
+        }
+        directories = directories.filter { dir in
+            !(dir == target || dir.hasPrefix(subtreePrefix))
+        }
+        symlinks = symlinks.filter { link in
+            !(link == target || link.hasPrefix(subtreePrefix))
+        }
     }
 }
