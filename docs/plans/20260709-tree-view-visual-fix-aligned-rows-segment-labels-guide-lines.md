@@ -33,11 +33,11 @@ Presentation-only rework of the grouped project tree renderer. Three visual defe
 - Modify: `Sources/CCSyncCore/ProjectPathTree.swift`
 - Modify: `Tests/CCSyncCoreTests/ProjectPathTreeTests.swift`
 
-- [ ] Add a stored `public var name: String` to `ProjectPathTree.Leaf`, initialized in `init`, documented as "the last path segment (display label); empty for orphans, which render `encodedName` instead".
-- [ ] Populate it in `makeLeaf(_:)` as `lastSegment(node.path)` when `path` is non-empty, else `""` (orphans keep using `encodedName` in the orphan section).
-- [ ] Update the `Leaf(...)` constructions in the test helpers so they compile with the new field.
-- [ ] Add tests: a normal project leaf's `name` equals its final segment (e.g. `/Users/a/git/bocore` → `bocore`); a project-is-also-a-prefix leaf keeps its own segment; an orphan leaf's `name` is `""`.
-- [ ] Run `swift test` — must pass before Task 2.
+- [x] Add a stored `public var name: String` to `ProjectPathTree.Leaf`, initialized in `init`, documented as "the last path segment (display label); empty for orphans, which render `encodedName` instead".
+- [x] Populate it in `makeLeaf(_:)` as `lastSegment(node.path)` when `path` is non-empty, else `""` (orphans keep using `encodedName` in the orphan section).
+- [x] Update the `Leaf(...)` constructions in the test helpers so they compile with the new field.
+- [x] Add tests: a normal project leaf's `name` equals its final segment (e.g. `/Users/a/git/bocore` → `bocore`); a project-is-also-a-prefix leaf keeps its own segment; an orphan leaf's `name` is `""`.
+- [x] Run `swift test` — must pass before Task 2.
 
 ### Task 2: Flatten the tree and render aligned rows with guide lines
 

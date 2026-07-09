@@ -70,6 +70,9 @@ public struct ProjectPathTree: Equatable, Sendable {
     public struct Leaf: Equatable, Sendable {
         public var path: String
         public var encodedName: String
+        /// The last path segment (display label); empty for orphans, which render
+        /// `encodedName` instead.
+        public var name: String
         public var incomplete: Bool
         public var incompleteReason: String?
         public var isSelectable: Bool
@@ -79,6 +82,7 @@ public struct ProjectPathTree: Equatable, Sendable {
         public init(
             path: String,
             encodedName: String,
+            name: String,
             incomplete: Bool,
             incompleteReason: String?,
             isSelectable: Bool,
@@ -86,6 +90,7 @@ public struct ProjectPathTree: Equatable, Sendable {
         ) {
             self.path = path
             self.encodedName = encodedName
+            self.name = name
             self.incomplete = incomplete
             self.incompleteReason = incompleteReason
             self.isSelectable = isSelectable
@@ -212,6 +217,7 @@ public struct ProjectPathTree: Equatable, Sendable {
         Leaf(
             path: node.path,
             encodedName: node.encodedName,
+            name: node.path.isEmpty ? "" : lastSegment(node.path),
             incomplete: node.incomplete,
             incompleteReason: node.incompleteReason,
             isSelectable: node.isSelectable,

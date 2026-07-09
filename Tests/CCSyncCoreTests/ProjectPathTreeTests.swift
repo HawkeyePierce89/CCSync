@@ -33,7 +33,7 @@ final class ProjectPathTreeTests: XCTestCase {
     private func leaf(_ row: ProjectPathTree.Row?, file: StaticString = #filePath, line: UInt = #line) -> ProjectPathTree.Leaf {
         guard case .project(let l)? = row else {
             XCTFail("expected a project row, got \(String(describing: row))", file: file, line: line)
-            return ProjectPathTree.Leaf(path: "", encodedName: "", incomplete: false, incompleteReason: nil, isSelectable: true, incompleteSummary: nil)
+            return ProjectPathTree.Leaf(path: "", encodedName: "", name: "", incomplete: false, incompleteReason: nil, isSelectable: true, incompleteSummary: nil)
         }
         return l
     }
@@ -195,6 +195,37 @@ final class ProjectPathTreeTests: XCTestCase {
         XCTAssertFalse(ghost.isSelectable)
         // Same wording as SelectionTree.Node.incompleteSummary.
         XCTAssertEqual(ghost.incompleteSummary, "settings only — no session history")
+    }
+
+    // MARK: - Leaf.name (last path segment display label)
+
+    func testLeafNameIsLastPathSegment() {
+        let tree = ProjectPathTree(nodes: [
+            node("/Users/a/git/bocore", "-Users-a-git-bocore"),
+        ])
+        let root = folder(tree.roots.first)
+        XCTAssertEqual(leaf(root.children.first).name, "bocore")
+    }
+
+    func testProjectThatIsAlsoAPrefixLeafKeepsItsOwnSegmentAsName() {
+        let tree = ProjectPathTree(nodes: [
+            node("/Users/a/git/App", "-Users-a-git-App"),
+            node("/Users/a/git/App/Sub", "-Users-a-git-App-Sub"),
+        ])
+        let gitFolder = folder(tree.roots.first)
+        // The project leaf half keeps its own final segment.
+        XCTAssertEqual(leaf(gitFolder.children[0]).name, "App")
+        // And its descendant leaf under the same-named folder keeps its own.
+        let appFolder = folder(gitFolder.children[1])
+        XCTAssertEqual(leaf(appFolder.children[0]).name, "Sub")
+    }
+
+    func testOrphanLeafNameIsEmpty() {
+        let tree = ProjectPathTree(nodes: [
+            node("", "-Users-a-git-Orphan", incomplete: true, incompleteReason: "no entry in ~/.claude.json"),
+        ])
+        XCTAssertEqual(tree.orphans.count, 1)
+        XCTAssertEqual(tree.orphans[0].name, "")
     }
 
     // MARK: - Row identity
