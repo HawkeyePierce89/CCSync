@@ -209,12 +209,12 @@ Files:
 - Create: `Sources/CCSyncCore/DeleteService.swift`
 - Create: `Tests/CCSyncCoreTests/DeleteServiceTests.swift`
 
-- [ ] `DeleteService(fileSystem:paths:)` with `@discardableResult func delete(selection:
+- [x] `DeleteService(fileSystem:paths:)` with `@discardableResult func delete(selection:
       Selection, operation: DeleteOperation, dryRun: Bool) throws -> DeleteReport`.
       Internally build `ProjectInventory.list(...)` from a fresh `~/.claude.json` read
       with the **same symlink guard as `BackupPlan`** (a symlinked config is rejected);
       act on each inventory entry whose `encodedName ∈ selection.projectEncodedNames`.
-- [ ] Per selected project (best-effort):
+- [x] Per selected project (best-effort):
   - Delete Claude data: gather locator paths + remove the `~/.claude.json`
     `projects[<path>]` key. Remove each existing path via `removeItem`; a path already
     missing is a warning, not a failure. Record a `DeletedProject` with `removedPaths`
@@ -231,16 +231,16 @@ Files:
     orphan (`path.isEmpty`), degenerate to data-only silently (no warning, no error).
     Set `folderRemoved` accordingly — never `true` unless the folder was actually
     removed.
-- [ ] `dryRun`: compute the identical report but perform no `removeItem`/`writeData` — so
+- [x] `dryRun`: compute the identical report but perform no `removeItem`/`writeData` — so
       the would-be report equals the real report for the same selection (acceptance #5
       parity). Only side effects differ.
-- [ ] Write-back of the mutated `~/.claude.json` happens once at the end (only when a key
+- [x] Write-back of the mutated `~/.claude.json` happens once at the end (only when a key
       was actually removed and not dry-run), reusing the same-document discipline as
       `RestoreService`.
-- [ ] Error handling: a `removeItem`/`writeData` failure (e.g. permission) is a stop
+- [x] Error handling: a `removeItem`/`writeData` failure (e.g. permission) is a stop
       condition — throw a `DeleteError`; already-deleted items stay deleted (no
       rollback), documented in the type and in README.
-- [ ] Write tests (journal-asserted): data-only removes history dir + linked artifacts +
+- [x] Write tests (journal-asserted): data-only removes history dir + linked artifacts +
       exactly one JSON key with the project folder and other projects/unknown keys
       untouched; entirely additionally removes the folder; guards for
       empty/`/`/home/symlink/missing folder produce the documented verbatim warning +
@@ -250,7 +250,7 @@ Files:
       `listDirectory(home)` is never called and the exact removed-path set matches;
       `DeleteService` guard results agree with `ManagePlan.FolderStatus` for the same
       fixture home (pre-run signal and execution-time check cannot disagree).
-- [ ] Run `swift test` — must pass before Task 5.
+- [x] Run `swift test` — must pass before Task 5.
 
 ### Task 5: CLI `ccsync delete`
 
