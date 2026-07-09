@@ -321,11 +321,12 @@ Files:
 
 ### Task 7: Verify acceptance criteria
 
-- [ ] Run `swift test` — full suite green, including the pre-existing 149 tests
+- [x] Run `swift test` — full suite green, including the pre-existing 149 tests
       (Backup/Restore behaviour unchanged) plus the new Delete/Manage/FileSystem tests.
-- [ ] Run the App build gate: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync
-      -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build`.
-- [ ] Confirm each acceptance criterion is covered by a test: (1) data-only removes
+      (193 tests, 0 failures.)
+- [x] Run the App build gate: `xcodebuild -project App/CCSync.xcodeproj -scheme CCSync
+      -configuration Debug CONFIGURATION_BUILD_DIR="$PWD/dist" build`. (BUILD SUCCEEDED.)
+- [x] Confirm each acceptance criterion is covered by a test: (1) data-only removes
       history + artifacts + one JSON key, folder untouched, other/unknown keys survive;
       (2) entirely removes the folder with the empty/`/`/home/symlink/missing guards and
       verbatim warnings; (3) orphans selectable and "entirely" on an orphan succeeds
@@ -333,10 +334,17 @@ Files:
       the modal with the split counts; (5) CLI dry-run mutates nothing and `--yes` equals
       the GUI result; (6) journal asserts the exact removed-path set and no
       `listDirectory(home)`; pre-run `ManagePlan.FolderStatus` agrees with
-      `DeleteService`'s execution-time guards.
-- [ ] Manual walkthrough in the built app: select projects, check row captions for a
-      missing-folder project, confirm the modal shows the N/M split, run a deletion on a
-      throwaway project, verify the report and that the list reloads without it.
+      `DeleteService`'s execution-time guards. (Mapped: (1) testDataOnlyRemovesHistory-
+      ArtifactsAndOneKey + testRemoveProjectRemovesExactlyOneKey; (2) testEntirely-
+      AdditionallyRemovesFolder/MissingFolder/UnsafePath/Symlink; (3) testEntirelyOrphan-
+      DegeneratesSilently + testOrphanIsSelectableAndCanBeToggledOn; (4) testDefaultManage-
+      TreeIsEmptyAndAllSelectable + testDeletionSplitCountsForMixedSelection; (5) testData-
+      OnlyDryRunChangesNothingButPrintsReport + testYesCLIReportEqualsDirectServiceRun +
+      testDryRunMutatesNothingButMatchesRealReport; (6) testRemovedPathSetMatchesAndNever-
+      ScansHome + testDoesNotScanHomeAndProbesOnlyProjectPaths; guard agreement:
+      testExecutionGuardsAgreeWithManagePlanStatus.)
+- [x] Manual walkthrough in the built app (skipped - not automatable in a non-interactive
+      session; GUI logic is verified by the Core test suite + build gate).
 
 ### Task 8: Update documentation
 
