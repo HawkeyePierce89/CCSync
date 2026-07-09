@@ -269,6 +269,91 @@ final class SelectionTreeTests: XCTestCase {
         XCTAssertEqual(selection.projectEncodedNames.count, 3)
     }
 
+    // MARK: - Folder tri-state derivation + cascade helpers
+
+    private func folderPlan() -> RestorePlan {
+        RestorePlan(
+            sourceUser: "alice",
+            sourceClaudeVersion: "1.2.3",
+            projects: [
+                ManifestProject(path: "/Users/alice/git/App", encodedName: "-Users-alice-git-App"),
+                ManifestProject(path: "/Users/alice/git/Web", encodedName: "-Users-alice-git-Web"),
+                ManifestProject(path: "/Users/alice/work/Z", encodedName: "-Users-alice-work-Z"),
+            ]
+        )
+    }
+
+    private let gitNames = ["-Users-alice-git-App", "-Users-alice-git-Web"]
+
+    func testFolderStateOnWhenAllDescendantsSelected() {
+        let tree = SelectionTree(plan: folderPlan())
+        XCTAssertEqual(tree.folderState(descendantEncodedNames: gitNames), .on)
+    }
+
+    func testFolderStateOffWhenNoDescendantSelected() {
+        var tree = SelectionTree(plan: folderPlan())
+        tree.setProject(encodedName: "-Users-alice-git-App", false)
+        tree.setProject(encodedName: "-Users-alice-git-Web", false)
+        XCTAssertEqual(tree.folderState(descendantEncodedNames: gitNames), .off)
+    }
+
+    func testFolderStateMixedWhenSomeDescendantsSelected() {
+        var tree = SelectionTree(plan: folderPlan())
+        tree.setProject(encodedName: "-Users-alice-git-Web", false)
+        XCTAssertEqual(tree.folderState(descendantEncodedNames: gitNames), .mixed)
+    }
+
+    func testSetFolderOffThenOnReflectedInResolution() {
+        var tree = SelectionTree(plan: folderPlan())
+        tree.setFolder(descendantEncodedNames: gitNames, false)
+        XCTAssertEqual(tree.resolvedSelection().projectEncodedNames, ["-Users-alice-work-Z"])
+
+        tree.setFolder(descendantEncodedNames: gitNames, true)
+        XCTAssertEqual(
+            tree.resolvedSelection().projectEncodedNames,
+            ["-Users-alice-git-App", "-Users-alice-git-Web", "-Users-alice-work-Z"]
+        )
+    }
+
+    func testSetFolderNeverFlipsNonSelectableLeaf() {
+        var tree = SelectionTree(plan: orphanBackupPlan())
+        // The orphan starts off and non-selectable; a folder set-on must not turn it on.
+        tree.setFolder(descendantEncodedNames: ["-Users-alice-git-App", "-Users-alice-git-Orphan"], true)
+
+        let orphan = tree.projects.first { $0.encodedName.hasSuffix("Orphan") }
+        XCTAssertEqual(orphan?.isSelected, false)
+        // And a non-selectable-only folder derives .off — it can never reach .on.
+        XCTAssertEqual(tree.folderState(descendantEncodedNames: ["-Users-alice-git-Orphan"]), .off)
+    }
+
+    func testSetFolderOnIsInertUnderMasterOff() {
+        var tree = SelectionTree(plan: folderPlan())
+        tree.setFolder(descendantEncodedNames: gitNames, true)
+        tree.setProjectsMaster(false)
+        XCTAssertTrue(tree.resolvedSelection().projectEncodedNames.isEmpty)
+    }
+
+    func testFolderStateIgnoresUnknownNamesMixedWithKnown() {
+        let tree = SelectionTree(plan: folderPlan())
+        // All known names selected; the unknown name must be skipped, not treated as off.
+        XCTAssertEqual(
+            tree.folderState(descendantEncodedNames: gitNames + ["-does-not-exist"]),
+            .on
+        )
+    }
+
+    func testFolderStateForAllUnknownNamesIsOff() {
+        let tree = SelectionTree(plan: folderPlan())
+        XCTAssertEqual(tree.folderState(descendantEncodedNames: ["-nope-1", "-nope-2"]), .off)
+    }
+
+    func testSetFolderWithUnknownNamesMutatesNothing() {
+        var tree = SelectionTree(plan: folderPlan())
+        let before = tree
+        tree.setFolder(descendantEncodedNames: ["-nope-1", "-nope-2"], false)
+        XCTAssertEqual(tree, before)
+    }
+
     // MARK: - JSONMerge (used by restore into ~/.claude.json)
 
     func testJSONMergePreservesUnknownKeysAndRecurses() {

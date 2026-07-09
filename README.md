@@ -114,6 +114,17 @@ nothing for the global layer.
 and Restore — that render the Core selection tree and call the same contract the CLI uses.
 It carries no business logic of its own.
 
+On both screens the projects are shown as a **collapsible, path-grouped tree** rather than a
+flat list of absolute paths: projects sharing a parent directory are gathered under
+expandable folders (single-child folder chains are compacted into one row, e.g.
+`/Users/alice/git`), and each folder carries a tri-state checkbox — checked when all
+projects under it are selected, a dash when only some are, empty when none — that toggles its
+whole subtree at once. Projects are checked by default. Any **orphaned history directory** (a
+`projects/<encoded>/` folder with no matching entry in `~/.claude.json`) is listed separately
+under a **"History only — no project entry"** section after the tree — greyed out and
+non-selectable on Backup, still toggleable on Restore. This is purely a display change: the
+selection it produces is identical to the flat list's.
+
 On first launch the app shows a one-time disclaimer (the same terms as the
 [Disclaimer](#disclaimer) section below) that must be acknowledged before use;
 acknowledgement is remembered across launches. The full MIT license text and the app
