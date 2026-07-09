@@ -106,6 +106,48 @@ The machine-readable seam shared by CLI and GUI:
   the tree (an all-unknown list derives `.off`) and `setFolder`/`setProject` no-op on them,
   since the derived name list may in theory lag the live tree. The archive format, CLI, and
   `resolvedSelection()` are untouched.
+- **Delete (Manage tab / `ccsync delete`):** a permanent, unsnapshotted removal path that
+  reuses the same selection seam. `FileSystem.removeItem(_:)` recursively removes a file or
+  a directory subtree; like `FileManager.removeItem` it does not follow a symlink target
+  (only the link entry is removed) and throws `FileSystemError.notFound(path)` for a missing
+  path (so callers can treat missing as skip+warn, not a crash). `ManagePlan(fileSystem:
+  paths:)` wraps a `BackupPlan` and computes, per project (keyed by `encodedName`), a
+  `FolderStatus` — `deletable` / `unsafePath` (path is `/` or normalizes to home) /
+  `missing` (no directory there) / `symlink` (entry is a symlink) / `orphan` (`path.isEmpty`)
+  — plus `folderCaption(for:)` (the single Core wording, `nil` for `deletable`) and
+  `deletionSplit(selection:) -> (folders, dataOnly)` for the modal counts. Existence checks
+  go through `FileSystem` on the explicit project paths only — no scanning. `SelectionTree(
+  managePlan:)` is the **inverse** of `init(plan: BackupPlan)`: `globalSelected = false`,
+  `projectsMasterSelected = true`, every project node `isSelected = false` and `isSelectable
+  = true` **including orphans** — so a fresh Manage tree resolves to an empty selection
+  (deletion is opt-in) and orphans are toggleable. `ProjectDataLocator` returns the ordered
+  set of removable Claude-data paths for an encoded project (the `projects/<encoded>/` dir
+  plus its linked per-session artifacts). The per-session artifact discovery is a **single
+  shared internal helper** used by both `BackupCollector` and `ProjectDataLocator` (one
+  implementation, pinned equal by a test) so the two callers cannot drift. A surgical
+  `~/.claude.json` key remover deletes exactly `projects[<path>]` from generic `JSONValue`
+  (every other key/project/unknown-future key preserved), returning the new document and
+  whether the key existed. `DeleteService(fileSystem:paths:).delete(selection:operation:
+  dryRun:) -> DeleteReport` orchestrates best-effort deletion: it rebuilds
+  `ProjectInventory.list` from a fresh `~/.claude.json` read under the **same symlink guard
+  as `BackupPlan`**, acts on each inventory entry whose `encodedName ∈ selection`, and for
+  each removes the located Claude-data paths + the JSON key (`.claudeDataOnly`) and, for
+  `.entireProject`, additionally attempts the folder removal under the guards. Folder guards
+  are re-checked at execution time (the pre-run `ManagePlan.FolderStatus` is only an early
+  UI signal) and emit **verbatim** warnings — unsafe: `refused to delete project folder
+  (unsafe path: <path>) — Claude data removed`; symlink: `project path is a symlink — folder
+  not removed, Claude data removed`; missing: `project folder not found on disk — Claude
+  data removed, nothing to delete for the folder`; an orphan under "entirely" degenerates to
+  data-only silently. `folderRemoved` is never `true` unless the folder was actually removed;
+  a project where nothing was present is reported under `skippedProjects` with reason
+  `nothing to delete — already gone`. `dryRun` computes the **identical** `DeleteReport`
+  (dryRun / deletedProjects with `removedPaths` / skippedProjects / warnings, mirroring
+  `RestoreReport`) but performs no `removeItem`/`writeData` — the would-be report equals the
+  real run; the mutated `~/.claude.json` is written once at the end only when a key was
+  removed and not dry-run. A `removeItem`/`writeData` failure is a **stop condition** — it
+  throws `DeleteError`; already-deleted items stay deleted (no rollback). The CLI command
+  `delete (--project <path> ... | --orphans) [--with-project-folder] [--yes]` is **dry-run
+  unless `--yes`**, prints a symmetric `deleteReportJSON`, and emits warnings to stderr.
 
 ## Decisions locked before implementation
 
@@ -140,7 +182,16 @@ Before any overwrite, restore snapshots current state to
 place for manual recovery — no auto-rollback (kept simple, documented in `Snapshot.swift`).
 No automatic cleanup of old snapshots.
 
+The snapshot policy is **restore-only**. `DeleteService` (Manage tab / `ccsync delete`)
+never snapshots — deletion is permanent and irreversible; a mid-run failure leaves
+already-deleted items deleted with no rollback.
+
 ## Error handling
 
 A corrupt archive, an invalid manifest, or a lack of write permission stop the process.
 "Skip and warn" applies *only* to on-disk-missing projects during restore.
+
+In `DeleteService` the analogous rule is best-effort deletion: a failed folder-removal
+guard (unsafe / symlink / missing) is refused-and-warned (per-project, never a crash) while
+the Claude-data cleanup still proceeds; a genuine `removeItem`/`writeData` failure (e.g.
+permission) is a stop condition that throws `DeleteError` with no rollback.

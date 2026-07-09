@@ -348,13 +348,13 @@ Files:
 
 ### Task 8: Update documentation
 
-- [ ] README: add a "Manage tab" section and the `ccsync delete (--project <path> ... |
+- [x] README: add a "Manage tab" section and the `ccsync delete (--project <path> ... |
       --orphans) [--with-project-folder] [--yes]` grammar with the dry-run default; state
       deletion is permanent with no snapshot and no undo, and that a permission failure
       stops the run leaving already-deleted items deleted (no rollback); scope the
       existing snapshot policy explicitly to restore; document the folder-removal guards
       (unsafe path / symlink / missing) and best-effort semantics.
-- [ ] CLAUDE.md: extend the Core contract with `DeleteService`/`DeleteReport`,
+- [x] CLAUDE.md: extend the Core contract with `DeleteService`/`DeleteReport`,
       `ManagePlan` (folder status, captions, `deletionSplit`), the
       `SelectionTree(managePlan:)` builder (all-selectable, default-off, no global
       layer), `FileSystem.removeItem` semantics, the shared artifact-discovery helper

@@ -55,7 +55,7 @@ Build the CLI with SwiftPM:
 swift build          # or: swift build -c release
 ```
 
-The `ccsync` executable has three commands (plus `ccsync --help` / `-h` / `help`, which
+The `ccsync` executable has four commands (plus `ccsync --help` / `-h` / `help`, which
 prints usage).
 
 ```sh
@@ -78,6 +78,13 @@ ccsync restore --archive <path> \
     [--global | --no-global] \        # include/exclude global config
     [--projects | --no-projects] \    # include/exclude all projects (master switch)
     [--project <path> ...]            # restrict to specific source project paths (repeatable)
+
+# Permanently delete a project's Claude Code footprint — and optionally the
+# project folder on disk. Dry-run by default: it prints the would-be report and
+# changes nothing; pass --yes to apply. No snapshot is taken and there is no undo.
+ccsync delete (--project <path> ... | --orphans) \
+    [--with-project-folder] \         # also remove the on-disk project folder (guarded)
+    [--yes]                           # actually delete; without it, dry-run only
 ```
 
 Selection semantics (identical for `backup` and `restore`):
@@ -108,13 +115,50 @@ real write, not just the selection: it can be `false` even with `--global` when 
 carried no global content (e.g. it was taken with `--no-global`), since restore then writes
 nothing for the global layer.
 
+### Deleting projects (`ccsync delete`)
+
+`delete` permanently removes a project's Claude Code footprint. **It is not a backup
+operation and takes no snapshot — the deletion is irreversible.** It is **dry-run by
+default**: with no `--yes` it prints the report it *would* produce and touches nothing
+on disk; the same command with `--yes` performs the identical work for real (dry-run and
+apply produce the same report; only the side effects differ).
+
+- At least one selector is required: one or more `--project <path>` (repeatable, matched
+  against the source project paths; an unknown path is warned and ignored) and/or
+  `--orphans` (every orphaned history directory — a `projects/<encoded>/` folder with no
+  entry in `~/.claude.json`).
+- **Delete Claude data** (the default) removes the project's session history directory and
+  its linked artifacts (`file-history/<uuid>/`, `session-env/<uuid>/`, `todos/…`) and
+  removes exactly the `projects[<path>]` key from `~/.claude.json`. Every other project
+  entry, the global settings, and any unknown/future top-level keys are preserved. The
+  project folder on disk is never touched.
+- **Delete project entirely** (`--with-project-folder`) does the Claude-data cleanup above
+  **and then** attempts to remove the on-disk project folder. Deletion is **best-effort**:
+  the Claude-data cleanup always proceeds, and the folder removal is refused-and-warned
+  (never a crash) when a sanity guard fails:
+  - **unsafe path** — the folder is `/` or the home directory: `refused to delete project
+    folder (unsafe path: <path>) — Claude data removed`;
+  - **symlink** — the project path is a symlink: `project path is a symlink — folder not
+    removed, Claude data removed` (the link target is never followed or removed);
+  - **missing** — no folder exists there: `project folder not found on disk — Claude data
+    removed, nothing to delete for the folder`.
+  An **orphan** (empty project path) under `--with-project-folder` silently degenerates to
+  data-only — no folder to remove, no warning. A project where nothing was present to
+  delete is reported under `skippedProjects` with reason `nothing to delete — already gone`.
+- `delete` prints a machine-readable JSON report (`dryRun`, `deletedProjects` — each with
+  `path`, `encodedName`, `folderRemoved`, and the exact `removedPaths` — `skippedProjects`
+  with reasons, and `warnings`). A folder is never reported as removed unless it actually
+  was.
+- **No rollback.** A permission (or other write/remove) failure **stops** the run and
+  exits non-zero; anything already deleted stays deleted. There is no snapshot and no undo.
+
 ## The macOS app
 
-`App/CCSync.xcodeproj` is a thin SwiftUI GUI over `CCSyncCore` with two screens — Backup
-and Restore — that render the Core selection tree and call the same contract the CLI uses.
-It carries no business logic of its own.
+`App/CCSync.xcodeproj` is a thin SwiftUI GUI over `CCSyncCore` with three screens — Backup,
+Restore, and Manage — that render the Core selection tree and call the same contract the CLI
+uses. It carries no business logic of its own.
 
-On both screens the projects are shown as a **collapsible, path-grouped tree** rather than a
+On every screen the projects are shown as a **collapsible, path-grouped tree** rather than a
 flat list of absolute paths: projects sharing a parent directory are gathered under
 expandable folders (single-child folder chains are compacted into one row, e.g.
 `/Users/alice/git`), and each folder carries a tri-state checkbox — checked when all
@@ -124,6 +168,20 @@ whole subtree at once. Projects are checked by default. Any **orphaned history d
 under a **"History only — no project entry"** section after the tree — greyed out and
 non-selectable on Backup, still toggleable on Restore. This is purely a display change: the
 selection it produces is identical to the flat list's.
+
+The **Manage** tab is the GUI front end for `ccsync delete`. Its tree starts with every
+project **unselected** (deletion is opt-in), orphans are selectable and toggleable, and each
+row shows a Core-computed pre-run caption when the folder cannot be removed ("folder already
+gone — Claude data only", "unsafe path — Claude data only", "symlink — Claude data only").
+A segmented picker chooses the operation — **Delete Claude data** or **Delete project
+entirely** — and the destructive **Delete…** button is disabled until at least one project
+is selected. It always opens an **irreversibility confirmation modal** first: the modal
+states the deletion is permanent with no snapshot and no undo, names the selected projects
+and the chosen operation, and — for "entirely" — shows the split "N project folders will be
+deleted, M will have Claude data cleaned only." Only on confirm does the deletion run; the
+result (deleted projects with a folder-removed indicator, skipped projects with reasons, and
+warnings) is rendered like the Restore report, and the list reloads so deleted projects
+disappear.
 
 On first launch the app shows a one-time disclaimer (the same terms as the
 [Disclaimer](#disclaimer) section below) that must be acknowledged before use;
@@ -153,6 +211,12 @@ author accepts **no liability** for data loss or any other damages arising from 
 use — see [LICENSE](LICENSE) (MIT). Restore does write a snapshot of the current state
 to `~/.claude/.ccsync-backups/<timestamp>/` before overwriting anything, but keep your
 own backups of anything you cannot afford to lose.
+
+The **Manage tab / `ccsync delete`** deletes data permanently and **takes no snapshot** —
+there is no undo. It can also remove the on-disk project folder (`--with-project-folder` /
+"Delete project entirely"). A failure mid-run leaves already-deleted items deleted (no
+rollback). Only the snapshot behaviour above, which is **restore-only**, protects you;
+delete does not.
 
 ## Development
 
